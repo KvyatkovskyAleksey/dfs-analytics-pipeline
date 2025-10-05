@@ -376,8 +376,6 @@ services:
 
   jupyter-notebook:
     <<: *spark-common
-    # not found how to don't run as spark user, here problems with
-    # /opt/notebooks directory access, so for now use root, for local dev it's okay
     ports:
       - "8888:8888"
     volumes:
