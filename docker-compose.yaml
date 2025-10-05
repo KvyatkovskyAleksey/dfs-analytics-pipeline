@@ -92,7 +92,9 @@ x-spark-common:
     context: .
     dockerfile: dockerfiles/Dockerfile.spark
   env_file: .env
-  image: spark:4.0.0-scala2.13-java21-python3-ubuntu
+  environment:
+    PYSPARK_PYTHON: /opt/.venv/bin/python
+    PYSPARK_DRIVER_PYTHON: /opt/.venv/bin/python
   volumes:
     - ${AIRFLOW_PROJ_DIR:-.}/spark-apps:/opt/spark-apps
 
@@ -376,5 +378,6 @@ services:
       bash -c "jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --ServerApp.token=''"
     depends_on:
       - spark-master
+      - spark-worker
 
 
