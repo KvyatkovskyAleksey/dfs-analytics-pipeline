@@ -164,3 +164,7 @@ cython_debug/
 
 # postgres
 postgres-data
+
+# airflow config
+/src/config/airflow.cfg
+/src/logs/

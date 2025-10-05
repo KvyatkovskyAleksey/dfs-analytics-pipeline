@@ -1,0 +1,34 @@
+FROM spark:4.0.0-scala2.13-java21-python3-ubuntu
+
+USER root
+
+# uv installation
+# The installer requires curl (and certificates) to download the release archive
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates
+
+# Download the latest installer
+ADD https://astral.sh/uv/install.sh /uv-installer.sh
+
+# Run the installer then remove it
+RUN sh /uv-installer.sh && rm /uv-installer.sh
+
+# Ensure the installed binary is on the `PATH`
+ENV PATH="/root/.local/bin/:$PATH"
+
+# Create a virtualenv in /opt and install dependencies using uv
+WORKDIR /opt
+COPY pyproject.toml ./
+RUN uv sync
+
+# Create notebooks directory and set permissions for the non-root user 'spark'
+RUN mkdir -p /opt/notebooks && \
+    chown -R spark:spark /opt/spark-apps /opt/notebooks /opt/.venv
+
+# Switch to the non-root spark user
+USER spark
+
+# Add the virtualenv to the PATH. This makes `python`, `pip`, and `jupyter`
+# from the virtualenv available directly.
+ENV VIRTUAL_ENV=/opt/.venv
+ENV PATH="/opt/.venv/bin:$PATH"
+ENV PYTHONPATH="/opt/.venv/bin/python"
