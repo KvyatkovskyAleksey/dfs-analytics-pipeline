@@ -1,32 +1,55 @@
+import logging
+import os
+import time
 from collections import defaultdict
 from datetime import datetime
+import random
+from typing import TypedDict, Literal
+
 import requests
+
+from src.scripts.utils.proxy import ProxyManager
+
+
+logger = logging.getLogger("RotogrindersScraper")
+
+Sport = Literal["NFL"]
+SlateType = Literal["dk_classic", "dk_single_game"]
+
+
+class StagingData(TypedDict):
+    draft_groups: dict
+    contests: dict[SlateType, list[dict]]
+    events: dict[SlateType, list[dict]]
+    contests_analyze_data: dict[SlateType, list[dict]]
+    lineups_by_slates: dict[SlateType, dict[int, list[dict]]]
+    date: str
+    sport: Sport
 
 
 class RotogrindersScraper:
     """Scraper for scrape data for analytics from rotogrinders.com (ResultsDB)"""
 
-    sports_mapping = {"NFL": 1}
-    partition_naming_by_sources = {4: "dk_classic", 8: "dk_single_game"}
+    sports_mapping: dict[Sport, int] = {"NFL": 1}
+
+    partition_naming_by_sources: dict[int, SlateType] = {
+        4: "dk_classic",
+        8: "dk_single_game",
+    }
     headers = {
         "accept": "*/*",
         "accept-language": "ru,en;q=0.9",
         "cache-control": "no-cache",
-        "flsessionid": "undefined",
         "origin": "https://terminal.fantasylabs.com",
         "pragma": "no-cache",
         "priority": "u=1, i",
         "referer": "https://terminal.fantasylabs.com/",
         "sec-ch-ua": '"Not)A;Brand";v="8", "Chromium";v="138", "YaBrowser";v="25.8", "Yowser";v="2.5"',
-        "sec-ch-ua-mobile": "?0",
         "sec-ch-ua-platform": '"Linux"',
-        "sec-fetch-dest": "empty",
-        "sec-fetch-mode": "cors",
-        "sec-fetch-site": "same-site",
         "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 YaBrowser/25.8.0.0 Safari/537.36",
     }
 
-    def __init__(self, date: str, sport: str):
+    def __init__(self, date: str, sport: Sport):
         if sport not in self.sports_mapping:
             raise ValueError(f"Unsupported sport: {sport}")
         try:
@@ -34,7 +57,7 @@ class RotogrindersScraper:
         except ValueError:
             raise ValueError(f"Incorrect date format: {date}")
         self.date = date
-        self.sport = sport
+        self.sport: Sport = sport
         self.sport_id = self.sports_mapping[self.sport]
         # here aggregate data for bulk insert to s3 storage
         self.draft_groups_data = None
@@ -42,6 +65,13 @@ class RotogrindersScraper:
         self.events_data = defaultdict(list)
         self.contests_analyze_data = defaultdict(list)
         self.lineups_by_slates = defaultdict(dict)
+        # we can use a proxy manager if set env value for PROXY_URL, it's recommended
+        #  because the site can sometimes block requests
+        proxy_url = os.getenv("PROXY_URL")
+        if proxy_url:
+            self.proxy_manager = ProxyManager(proxy_url)
+        else:
+            self.proxy_manager = None
 
     def scrape(self):
         draft_groups = self._scrape_draft_groups()
@@ -49,6 +79,13 @@ class RotogrindersScraper:
         for slate_group in draft_groups["contest-sources"]:
             partition_name = self.partition_naming_by_sources[slate_group["id"]]
             for slate in slate_group["draft_groups"]:
+                # sometimes api return data for upcoming dates, so we can skip it for don't duplicate data
+                if not slate["contest_start_date"].startswith(self.date):
+                    logger.info(
+                        f"Skip slate, because it's not for scraped date ({self.date} != {slate['contest_start_date']})"
+                    )
+                    continue
+
                 slate_id = slate["id"]
                 slate_contests = self._scrape_slate_contests(slate_id)
                 self.contests_data[partition_name].append(slate_contests)
@@ -64,17 +101,19 @@ class RotogrindersScraper:
                     contest_lineups = self._scrape_contest_lineups(
                         contest["contest_id"]
                     )
-                    self.lineups_by_slates[partition_name][contest["contest_id"]] = (
-                        contest_lineups["lineups"]
-                    )
+                    self.lineups_by_slates[partition_name][
+                        contest["contest_id"]
+                    ] = contest_lineups
 
-    def get_data(self):
+    def get_data(self) -> StagingData:
         return {
             "draft_groups": self.draft_groups_data,
             "contests": self.contests_data,
             "events": self.events_data,
             "contests_analyze_data": self.contests_analyze_data,
             "lineups_by_slates": self.lineups_by_slates,
+            "date": self.date,
+            "sport": self.sport,
         }
 
     def _scrape_draft_groups(self) -> dict:
@@ -88,7 +127,14 @@ class RotogrindersScraper:
         return self._make_request(url)
 
     def _make_request(self, url: str) -> dict:
-        response = requests.get(url, headers=self.headers)
+        proxies = None
+        if self.proxy_manager:
+            proxy = self.proxy_manager.get_random_proxy()
+            proxies = {"http": proxy, "https": proxy}
+        if not proxies:
+            # to prevent banning, add delay if no proxies set
+            time.sleep(random.uniform(3, 5))
+        response = requests.get(url, headers=self.headers, proxies=proxies)
         response.raise_for_status()
         return response.json()
 
@@ -118,4 +164,3 @@ class RotogrindersScraper:
 if __name__ == "__main__":
     scraper = RotogrindersScraper(date="2025-09-29", sport="NFL")
     scraper.scrape()
-    a = 1
