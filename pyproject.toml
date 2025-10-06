@@ -10,3 +10,8 @@ dependencies = [
     "pandas>=2.3.3",
     "pyspark>=4.0.1",
 ]
+
+[dependency-groups]
+dev = [
+    "black>=25.9.0",
+]
