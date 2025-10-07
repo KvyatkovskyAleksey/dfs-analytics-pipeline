@@ -172,3 +172,6 @@ postgres-data
 # jupyterlab files to exclude
 /src/notebooks/artifacts/
 /src/notebooks/.Trash*/
+
+# temporary development files
+/src/scripts/staging_data.pickle
