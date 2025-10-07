@@ -8,7 +8,7 @@ from typing import TypedDict, Literal
 
 import requests
 
-from src.scripts.utils.proxy import ProxyManager
+from scripts.utils.proxy import ProxyManager
 
 
 logger = logging.getLogger("RotogrindersScraper")
@@ -162,5 +162,5 @@ class RotogrindersScraper:
 
 
 if __name__ == "__main__":
-    scraper = RotogrindersScraper(date="2025-09-29", sport="NFL")
+    scraper = RotogrindersScraper(date="2025-10-02", sport="NFL")
     scraper.scrape()
