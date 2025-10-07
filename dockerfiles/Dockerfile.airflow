@@ -1,0 +1,28 @@
+FROM apache/airflow:3.1.0
+
+# Copy main pyproject.toml
+COPY --chown=airflow:root pyproject.toml /opt/airflow/pyproject.toml
+
+# Set working directory
+WORKDIR /opt/airflow
+
+# Parse pyproject.toml, filter out apache-airflow==3.1.0, generate requirements.txt
+# This keeps airflow extensions (apache-airflow-providers-*) but excludes the base airflow package
+RUN python <<EOF
+import tomllib
+
+with open('pyproject.toml', 'rb') as f:
+    data = tomllib.load(f)
+
+deps = data['project']['dependencies']
+filtered = [d for d in deps if not d.startswith('apache-airflow==')]
+
+with open('requirements.txt', 'w') as f:
+    f.write('\n'.join(filtered))
+EOF
+
+# Install filtered dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Add /opt/src to PYTHONPATH so DAGs can import from scripts package
+ENV PYTHONPATH="/opt/src:${PYTHONPATH:-}"
