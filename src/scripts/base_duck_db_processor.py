@@ -23,7 +23,6 @@ class BaseDuckDBProcessor:
             raise ImproperlyConfigured(
                 "WASABI_ACCESS_KEY and WASABI_SECRET_KEY environment variables must be set"
             )
-        self.base_path = f"s3://{self.bucket_name}/staging/{self.sport}/"
 
     def __enter__(self) -> "BaseDuckDBProcessor":
         self.con = duckdb.connect()
@@ -34,7 +33,6 @@ class BaseDuckDBProcessor:
             SET s3_secret_access_key='{self.s3_secret_access_key}';
             SET s3_url_style='path';
             SET preserve_insertion_order = false; 
-            SET temp_directory = '/tmp/duck_db_tmp_dir.tmp/';
         """
         )
         return self
