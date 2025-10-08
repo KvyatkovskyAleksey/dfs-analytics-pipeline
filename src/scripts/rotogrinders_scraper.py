@@ -30,6 +30,8 @@ class StagingData(TypedDict):
 class RotogrindersScraper:
     """Scraper for scrape data for analytics from rotogrinders.com (ResultsDB)"""
 
+    MAX_REQUESTS_RETRIES = 3
+
     sports_mapping: dict[Sport, int] = {"NFL": 1}
 
     partition_naming_by_sources: dict[int, SlateType] = {
@@ -73,8 +75,15 @@ class RotogrindersScraper:
         else:
             self.proxy_manager = None
 
+    @property
+    def data_exists(self) -> bool:
+        """Check if any events exist on this date"""
+        return bool(self.events_data)
+
     def scrape(self):
         draft_groups = self._scrape_draft_groups()
+        if not draft_groups:
+            return
         self.draft_groups_data = draft_groups
         for slate_group in draft_groups["contest-sources"]:
             partition_name = self.partition_naming_by_sources[slate_group["id"]]
@@ -88,19 +97,39 @@ class RotogrindersScraper:
 
                 slate_id = slate["id"]
                 slate_contests = self._scrape_slate_contests(slate_id)
+                if slate_contests is None:
+                    logger.info(
+                        f"Skip slate {slate_id}, because it doesn't have contests data"
+                    )
+                    continue
                 self.contests_data[partition_name].append(slate_contests)
                 slate_events = self._get_events(slate_id)
+                if slate_events is None:
+                    logger.info(
+                        f"Skip slate {slate_id}, because it doesn't have events data"
+                    )
+                    continue
                 self.events_data[partition_name].append(slate_events)
                 for contest in slate_contests["live_contests"]:
                     contests_analyze_data = self._scrape_contests_analyze_data(
                         contest["contest_id"]
                     )
+                    if not contests_analyze_data:
+                        logger.info(
+                            f"Skip contest, because it doesn't have contests analyze data ({contest['contest_id']})"
+                        )
+                        continue
                     self.contests_analyze_data[partition_name].append(
                         contests_analyze_data
                     )
                     contest_lineups = self._scrape_contest_lineups(
                         contest["contest_id"]
                     )
+                    if not contest_lineups:
+                        logger.info(
+                            f"Skip contest, because it doesn't have lineups ({contest['contest_id']})"
+                        )
+                        continue
                     self.lineups_by_slates[partition_name][
                         contest["contest_id"]
                     ] = contest_lineups
@@ -126,17 +155,34 @@ class RotogrindersScraper:
         )
         return self._make_request(url)
 
-    def _make_request(self, url: str) -> dict:
-        proxies = None
-        if self.proxy_manager:
-            proxy = self.proxy_manager.get_random_proxy()
-            proxies = {"http": proxy, "https": proxy}
-        if not proxies:
-            # to prevent banning, add delay if no proxies set
-            time.sleep(random.uniform(3, 5))
-        response = requests.get(url, headers=self.headers, proxies=proxies)
-        response.raise_for_status()
-        return response.json()
+    def _make_request(self, url: str) -> dict | None:
+        """Make a request with retries and proxies if set"""
+        logger.info(f"Making request to {url}")
+        attempts = 0
+        request_data = None
+        while attempts < self.MAX_REQUESTS_RETRIES:
+            try:
+                attempts += 1
+                proxies = None
+                if self.proxy_manager:
+                    proxy = self.proxy_manager.get_random_proxy()
+                    proxies = {"http": proxy, "https": proxy}
+                if not proxies:
+                    # to prevent banning, add delay if no proxies set
+                    time.sleep(random.uniform(3, 5))
+                response = requests.get(
+                    url, headers=self.headers, proxies=proxies, timeout=120
+                )
+                if response.status_code == 200:
+                    request_data = response.json()
+                    break
+            except requests.exceptions.ProxyError:
+                logger.info(f"ProxyError on {url}")
+                continue
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+                logger.info(f"ConnectionError on {url}")
+                continue
+        return request_data
 
     def _scrape_slate_contests(self, slate_id: int) -> dict:
         """Scrape contests from slate"""
@@ -162,5 +208,6 @@ class RotogrindersScraper:
 
 
 if __name__ == "__main__":
-    scraper = RotogrindersScraper(date="2025-10-02", sport="NFL")
+    scraper = RotogrindersScraper(date="2025-10-01", sport="NFL")
     scraper.scrape()
+    data = scraper.get_data()

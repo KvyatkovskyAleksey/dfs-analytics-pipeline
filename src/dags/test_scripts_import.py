@@ -5,9 +5,10 @@ Test DAG to verify:
 3. Development setup is working correctly
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime
+
 from airflow import DAG
-from airflow.operators.python import PythonOperator
+from airflow.providers.standard.operators.python import PythonOperator
 
 
 def test_package_imports():
