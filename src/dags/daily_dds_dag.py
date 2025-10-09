@@ -141,11 +141,7 @@ with DAG(
                 # Store reference to this table's TaskGroup
                 table_groups[table] = table_group
 
-            # Add sequential dependencies between table TaskGroups
-            # Process one table at a time: players → users_lineups → lineups (in parallel runs it down sometimes
-            # because not enough memory)
-            (
-                table_groups["players"]
-                >> table_groups["users_lineups"]
-                >> table_groups["lineups"]
-            )
+            # Process tables SEQUENTIALLY (one at a time)
+            # Individual tasks need up to 24GB, so parallel execution would exceed worker limit
+            # Sequential: 1 task × 24GB = safe within 48GB worker limit
+            table_groups["players"] >> table_groups["users_lineups"] >> table_groups["lineups"]

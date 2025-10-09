@@ -1,5 +1,7 @@
 import logging
 import os
+import tempfile
+import shutil
 
 import duckdb
 import s3fs
@@ -33,23 +35,54 @@ class BaseDuckDBProcessor:
         )
 
     def __enter__(self) -> "BaseDuckDBProcessor":
-        self.con = duckdb.connect()
+        # Generate unique temp database path (file doesn't exist yet - DuckDB will create it)
+        self.temp_db_path = tempfile.mktemp(suffix=".duckdb", dir="/tmp")
+
+        # Create unique temp directory for DuckDB spill operations
+        self.temp_dir = tempfile.mkdtemp(prefix="duckdb_", dir="/tmp")
+
+        # Connect to the disk-based database - DuckDB will create the database file
+        self.con = duckdb.connect(self.temp_db_path)
+
         self.con.execute(
             f"""
             SET s3_endpoint='{self.s3_endpoint}';
             SET s3_access_key_id='{self.s3_access_key_id}';
             SET s3_secret_access_key='{self.s3_secret_access_key}';
             SET s3_url_style='path';
-            SET preserve_insertion_order = false; 
+            SET preserve_insertion_order = false;
+
+            -- Memory management: limit RAM usage and use disk for large operations
+            SET memory_limit='24GB';
+            SET temp_directory='{self.temp_dir}';
         """
+        )
+
+        logger.info(
+            f"✓ DuckDB configured with S3 credentials (temp db: {self.temp_db_path})"
         )
         return self
 
-    logger.info("✓ DuckDB configured with S3 credentials")
-
     def __exit__(self, exc_type, exc_value, traceback):
+        # Close connection first
         if self.con:
             self.con.close()
+
+        # Clean up temporary database file
+        if hasattr(self, "temp_db_path") and os.path.exists(self.temp_db_path):
+            try:
+                os.unlink(self.temp_db_path)
+                logger.debug(f"Deleted temp database: {self.temp_db_path}")
+            except Exception as e:
+                logger.warning(f"Failed to delete temp database {self.temp_db_path}: {e}")
+
+        # Clean up temp directory for spill operations
+        if hasattr(self, "temp_dir") and os.path.exists(self.temp_dir):
+            try:
+                shutil.rmtree(self.temp_dir)
+                logger.debug(f"Deleted temp directory: {self.temp_dir}")
+            except Exception as e:
+                logger.warning(f"Failed to delete temp directory {self.temp_dir}: {e}")
 
     def _s3_file_exists(self, s3_path: str) -> bool:
         """
