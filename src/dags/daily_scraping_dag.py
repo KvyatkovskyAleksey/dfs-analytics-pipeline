@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from typing import MutableSet, cast
+import os
 
 from airflow import DAG
 from airflow.providers.standard.operators.python import (
@@ -15,6 +16,9 @@ from scripts.date_tracker import DateTracker
 from scripts.rotogrinders_scraper import Sport
 
 logger = logging.getLogger(__name__)
+
+# S3 configuration
+BUCKET_NAME = os.getenv("WASABI_BUCKET_NAME")
 
 # Configuration
 SPORTS: list[Sport] = ["NFL"]  # Add more sports here: ["NFL", "NBA", "MLB"]
@@ -35,7 +39,8 @@ def check_if_scraped(sport: Sport, **context) -> str:
     logical_date = context["logical_date"]
     target_date = (logical_date - timedelta(days=1)).strftime("%Y-%m-%d")
 
-    tracker = DateTracker(sport=sport)
+    tracking_path = f"s3://{BUCKET_NAME}/staging/metadata/{sport}/scraped_dates.json"
+    tracker = DateTracker(sport=sport, tracking_path=tracking_path)
     is_scraped = tracker.is_scraped(target_date)
 
     if is_scraped:
@@ -61,7 +66,8 @@ def mark_date_scraped(sport: Sport, **context) -> None:
     logical_date = context["logical_date"]
     target_date = (logical_date - timedelta(days=1)).strftime("%Y-%m-%d")
 
-    tracker = DateTracker(sport=sport)
+    tracking_path = f"s3://{BUCKET_NAME}/staging/metadata/{sport}/scraped_dates.json"
+    tracker = DateTracker(sport=sport, tracking_path=tracking_path)
     tracker.mark_scraped(target_date)
     logger.info(f"{sport} - Marked {target_date} as scraped")
 

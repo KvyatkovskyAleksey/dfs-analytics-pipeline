@@ -27,6 +27,14 @@ class DdsProcessor(BaseDuckDBProcessor):
         logger.info(f"Processing players for {self.date} {self.sport}")
         for slate_type in self.slate_types:
             staging_path = f"{self.staging_base_path}{self.sport}/contest_analyze/{slate_type}/{self.date}/data.json.gz"
+
+            # Check if staging file exists before processing
+            if not self._s3_file_exists(staging_path):
+                logger.warning(
+                    f"Skipping {slate_type} for players - staging file not found: {staging_path}"
+                )
+                continue
+
             dds_path = f"{self.dds_base_path}{self.sport}/players/{slate_type}/{self.date}/data.parquet"
             self.con.execute(
                 f"""
@@ -64,7 +72,15 @@ class DdsProcessor(BaseDuckDBProcessor):
         logger.info(f"Processing users and lineups for {self.date} {self.sport}")
         for slate_type in self.slate_types:
             staging_path = f"{self.staging_base_path}{self.sport}/contest_analyze/{slate_type}/{self.date}/data.json.gz"
-            users_path = f"{self.staging_base_path}{self.sport}/users/{slate_type}/{self.date}/data.parquet"
+
+            # Check if staging file exists before processing
+            if not self._s3_file_exists(staging_path):
+                logger.warning(
+                    f"Skipping {slate_type} for users_lineups - staging file not found: {staging_path}"
+                )
+                continue
+
+            users_path = f"{self.dds_base_path}{self.sport}/users/{slate_type}/{self.date}/data.parquet"
             lineups_path = f"{self.dds_base_path}{self.sport}/user_lineups/{slate_type}/{self.date}/data.parquet"
 
             self.con.execute(
@@ -124,6 +140,14 @@ class DdsProcessor(BaseDuckDBProcessor):
         """Process lineups data to DDS stage for a given date and sport"""
         for slate_type in self.slate_types:
             staging_lineups_path = f"{self.staging_base_path}{self.sport}/lineups/{slate_type}/{self.date}/data.json.gz"
+
+            # Check if staging file exists before processing
+            if not self._s3_file_exists(staging_lineups_path):
+                logger.warning(
+                    f"Skipping {slate_type} for lineups - staging file not found: {staging_lineups_path}"
+                )
+                continue
+
             lineups_path = f"{self.dds_base_path}{self.sport}/lineups/{slate_type}/{self.date}/data.parquet"
 
             # First, get all unique position keys from the lineup data (we process different slate types,

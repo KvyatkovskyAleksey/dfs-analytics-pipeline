@@ -2,6 +2,7 @@ import logging
 import os
 
 import duckdb
+import s3fs
 
 from scripts.exceptions import ImproperlyConfigured
 
@@ -24,6 +25,13 @@ class BaseDuckDBProcessor:
                 "WASABI_ACCESS_KEY and WASABI_SECRET_KEY environment variables must be set"
             )
 
+        # Initialize S3 filesystem for file checks
+        self.s3 = s3fs.S3FileSystem(
+            client_kwargs={"endpoint_url": f"https://{self.s3_endpoint}"},
+            key=self.s3_access_key_id,
+            secret=self.s3_secret_access_key,
+        )
+
     def __enter__(self) -> "BaseDuckDBProcessor":
         self.con = duckdb.connect()
         self.con.execute(
@@ -42,3 +50,21 @@ class BaseDuckDBProcessor:
     def __exit__(self, exc_type, exc_value, traceback):
         if self.con:
             self.con.close()
+
+    def _s3_file_exists(self, s3_path: str) -> bool:
+        """
+        Check if an S3 file exists.
+
+        Args:
+            s3_path: Full S3 path (e.g., "s3://bucket/path/to/file.json.gz")
+
+        Returns:
+            True if file exists, False otherwise
+        """
+        try:
+            # Remove s3:// prefix for s3fs
+            path_without_protocol = s3_path.replace("s3://", "")
+            return self.s3.exists(path_without_protocol)
+        except Exception as e:
+            logger.warning(f"Error checking S3 file {s3_path}: {e}")
+            return False

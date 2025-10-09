@@ -195,6 +195,12 @@ services:
   airflow-worker:
     <<: *airflow-common
     command: celery worker
+    deploy:
+      resources:
+        limits:
+          memory: 32G
+        reservations:
+          memory: 4G
     healthcheck:
       # yamllint disable rule:line-length
       test:

@@ -10,15 +10,13 @@ logger = logging.getLogger(__name__)
 
 
 class DateTracker:
-    """Track scraped dates in S3 for idempotent scraping."""
+    """Track scraped/processed dates in S3 for idempotent operations."""
 
-    def __init__(self, sport: Sport):
+    def __init__(self, sport: Sport, tracking_path: str):
         self.sport = sport
         self.s3_endpoint = os.getenv("WASABI_ENDPOINT", "s3.us-east-2.wasabisys.com")
         self.bucket_name = os.getenv("WASABI_BUCKET_NAME")
-        self.s3_path = (
-            f"s3://{self.bucket_name}/staging/metadata/{sport}/scraped_dates.json"
-        )
+        self.s3_path = tracking_path
 
         self.storage_options = {
             "client_kwargs": {"endpoint_url": f"https://{self.s3_endpoint}"},
