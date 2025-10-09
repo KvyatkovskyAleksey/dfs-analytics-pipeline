@@ -1,0 +1,38 @@
+FROM apache/superset:5.0.0
+
+USER root
+
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python packages as root into the venv
+# duckdb-engine will install compatible duckdb version automatically
+RUN /app/.venv/bin/python -m ensurepip --upgrade && \
+    /app/.venv/bin/python -m pip install --upgrade pip && \
+    /app/.venv/bin/python -m pip install --no-cache-dir \
+    psycopg2-binary==2.9.10 \
+    duckdb-engine \
+    s3fs==2025.9.0 \
+    redis==5.0.1 \
+    cachelib
+
+# Verify installation and show versions
+RUN /app/.venv/bin/python -c "import psycopg2; import duckdb; import duckdb_engine; from cachelib.redis import RedisCache; print(f'✓ DuckDB {duckdb.__version__}, duckdb-engine, cachelib installed')"
+
+USER superset
+
+# Copy configuration and initialization scripts
+COPY --chown=superset:superset scripts/superset_config.py /app/pythonpath/superset_config.py
+COPY --chown=superset:superset scripts/init_superset.sh /app/docker/docker-init.sh
+RUN chmod +x /app/docker/docker-init.sh
+
+ENV SUPERSET_HOME=/app/superset_home
+ENV SUPERSET_CONFIG_PATH=/app/pythonpath/superset_config.py
+ENV PYTHONPATH=/app/pythonpath:$PYTHONPATH
+
+ENTRYPOINT ["/app/docker/docker-init.sh"]
