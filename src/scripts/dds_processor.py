@@ -22,6 +22,49 @@ class DdsProcessor(BaseDuckDBProcessor):
         if self.date is None or self.sport is None:
             raise ValueError("Date and sport must be provided")
 
+    def process_contests(self) -> None:
+        """Save contests data to DDS stage for a given date and sport"""
+        logger.info(f"Processing contests for {self.date} {self.sport}")
+        for slate_type in self.slate_types:
+            staging_path = f"{self.staging_base_path}{self.sport}/contests/{slate_type}/{self.date}/data.json.gz"
+
+            # Check if staging file exists before processing
+            if not self._s3_file_exists(staging_path):
+                logger.warning(
+                    f"Skipping {slate_type} for contests - staging file not found: {staging_path}"
+                )
+                continue
+
+            dds_path = f"{self.dds_base_path}{self.sport}/contests/{slate_type}/{self.date}/data.parquet"
+            self.con.execute(
+                f"""
+                COPY
+                    (SELECT
+                        (contest_element ->> 'contest_id')::INTEGER as contest_id,
+                        contest_element ->> 'contest_name' as contest_name,
+                        (contest_element ->> 'contest_size')::INTEGER as contest_size,
+                        (contest_element ->> 'entry_cost')::INTEGER as entry_cost,
+                        (contest_element ->> 'total_prizes')::INTEGER as total_prizes,
+                        (contest_element ->> 'multi_entry_max')::INTEGER as multi_entry_max,
+                        (contest_element ->> 'is_largest_by_size')::BOOLEAN as is_largest_by_size,
+                        (contest_element ->> 'is_primary')::BOOLEAN as is_primary,
+                        contest_element ->> 'tour' as tour,
+                        (contest_element ->> 'source_id')::INTEGER as source_id,
+                        (contest_element ->> 'sport_event_id')::INTEGER as sport_event_id,
+                        (contest_element ->> 'contest_group_id')::INTEGER as contest_group_id,
+                        (contest_element ->> 'cash_line')::INTEGER as cash_line,
+                        (contest_element ->> 'date_id')::INTEGER as date_id
+                    FROM (
+                        SELECT
+                            unnest(live_contests) as contest_element
+                        FROM read_json_auto('{staging_path}', maximum_object_size={self.MAX_OBJECT_SIZE})
+                    )
+                    ) TO '{dds_path}'
+                    (FORMAT PARQUET, COMPRESSION 'SNAPPY')
+            """
+            )
+        logger.info(f"Contests data for {self.date} {self.sport} saved to DDS")
+
     def process_players(self) -> None:
         """Save players data to DDS stage for a given date and sport"""
         logger.info(f"Processing players for {self.date} {self.sport}")

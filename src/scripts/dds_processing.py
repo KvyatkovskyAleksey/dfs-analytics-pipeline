@@ -8,6 +8,20 @@ from scripts.rotogrinders_scraper import Sport
 logger = logging.getLogger(__name__)
 
 
+def process_contests_to_dds(date: str, sport: Sport) -> None:
+    """
+    Process contests data from staging to DDS.
+
+    Args:
+        date: Date in YYYY-MM-DD format
+        sport: Sport type (e.g., "NFL", "NBA")
+    """
+    logger.info(f"Starting contests processing for {sport} on {date}")
+    with DdsProcessor(sport=sport, date=date) as processor:
+        processor.process_contests()
+    logger.info(f"Completed contests processing for {sport} on {date}")
+
+
 def process_players_to_dds(date: str, sport: Sport) -> None:
     """
     Process players data from staging to DDS.

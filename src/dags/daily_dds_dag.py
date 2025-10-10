@@ -12,6 +12,7 @@ from airflow.sdk.definitions.taskgroup import TaskGroup
 import logging
 
 from scripts.dds_processing import (
+    process_contests_to_dds,
     process_players_to_dds,
     process_users_lineups_to_dds,
     process_lineups_to_dds,
@@ -26,10 +27,11 @@ BUCKET_NAME = os.getenv("WASABI_BUCKET_NAME")
 
 # Configuration
 SPORTS: list[Sport] = ["NFL"]  # Add more sports here: ["NFL", "NBA", "MLB"]
-DDS_TABLES = ["players", "users_lineups", "lineups"]
+DDS_TABLES = ["contests", "players", "users_lineups", "lineups"]
 
 # Mapping of table names to processing functions
 PROCESSING_FUNCTIONS = {
+    "contests": process_contests_to_dds,
     "players": process_players_to_dds,
     "users_lineups": process_users_lineups_to_dds,
     "lineups": process_lineups_to_dds,
@@ -144,4 +146,4 @@ with DAG(
             # Process tables SEQUENTIALLY (one at a time)
             # Individual tasks need up to 24GB, so parallel execution would exceed worker limit
             # Sequential: 1 task × 24GB = safe within 48GB worker limit
-            table_groups["players"] >> table_groups["users_lineups"] >> table_groups["lineups"]
+            table_groups["contests"] >> table_groups["players"] >> table_groups["users_lineups"] >> table_groups["lineups"]
