@@ -407,8 +407,13 @@ services:
     image: postgres:18
     volumes:
       - ./docker-scripts/init_superset_db.sh:/init_superset_db.sh
+    env_file: .env
     environment:
-      PGPASSWORD: airflow
+      PGPASSWORD: ${SUPERSET_DB_PASSWORD:-airflow}
+      SUPERSET_DB_HOST: ${SUPERSET_DB_HOST:-postgres}
+      SUPERSET_DB_PORT: ${SUPERSET_DB_PORT:-5432}
+      SUPERSET_DB_USER: ${SUPERSET_DB_USER:-airflow}
+      SUPERSET_DB_NAME: ${SUPERSET_DB_NAME:-superset}
     command: bash /init_superset_db.sh
     depends_on:
       postgres:
@@ -421,7 +426,7 @@ services:
     env_file: .env
     environment:
       SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:-YourSuperSecretKeyHere}
-      SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://airflow:airflow@postgres:5432/superset
+      SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://${SUPERSET_DB_USER:-airflow}:${SUPERSET_DB_PASSWORD:-airflow}@${SUPERSET_DB_HOST:-postgres}:${SUPERSET_DB_PORT:-5432}/${SUPERSET_DB_NAME:-superset}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       SUPERSET_LOAD_EXAMPLES: "no"
