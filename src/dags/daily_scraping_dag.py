@@ -37,7 +37,7 @@ default_args = {
 def check_if_scraped(sport: Sport, **context) -> str:
     """Check if date already scraped for this sport."""
     logical_date = context["logical_date"]
-    target_date = (logical_date - timedelta(days=1)).strftime("%Y-%m-%d")
+    target_date = (logical_date - timedelta(days=3)).strftime("%Y-%m-%d")
 
     tracking_path = f"s3://{BUCKET_NAME}/staging/metadata/{sport}/scraped_dates.json"
     tracker = DateTracker(sport=sport, tracking_path=tracking_path)
@@ -54,7 +54,7 @@ def check_if_scraped(sport: Sport, **context) -> str:
 def scrape_and_load(sport: Sport, **context) -> None:
     """Scrape and load data for this sport."""
     logical_date = context["logical_date"]
-    target_date = (logical_date - timedelta(days=1)).strftime("%Y-%m-%d")
+    target_date = (logical_date - timedelta(days=3)).strftime("%Y-%m-%d")
 
     logger.info(f"{sport} - Starting scrape for {target_date}")
     load_data_to_staging(date=target_date, sport=sport)
@@ -64,7 +64,7 @@ def scrape_and_load(sport: Sport, **context) -> None:
 def mark_date_scraped(sport: Sport, **context) -> None:
     """Mark date as scraped in tracking file."""
     logical_date = context["logical_date"]
-    target_date = (logical_date - timedelta(days=1)).strftime("%Y-%m-%d")
+    target_date = (logical_date - timedelta(days=3)).strftime("%Y-%m-%d")
 
     tracking_path = f"s3://{BUCKET_NAME}/staging/metadata/{sport}/scraped_dates.json"
     tracker = DateTracker(sport=sport, tracking_path=tracking_path)

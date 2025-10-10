@@ -51,7 +51,7 @@ default_args = {
 def check_if_processed(sport: Sport, table: str, **context) -> str:
     """Check if date already processed for this sport and table."""
     logical_date = context["logical_date"]
-    target_date = (logical_date - timedelta(days=2)).strftime("%Y-%m-%d")
+    target_date = (logical_date - timedelta(days=5)).strftime("%Y-%m-%d")
 
     tracking_path = (
         f"s3://{BUCKET_NAME}/dds/metadata/{sport}/{table}/processed_dates.json"
@@ -70,7 +70,7 @@ def check_if_processed(sport: Sport, table: str, **context) -> str:
 def process_table_data(sport: Sport, table: str, **context) -> None:
     """Process data for this sport and table."""
     logical_date = context["logical_date"]
-    target_date = (logical_date - timedelta(days=2)).strftime("%Y-%m-%d")
+    target_date = (logical_date - timedelta(days=5)).strftime("%Y-%m-%d")
 
     logger.info(f"{sport}/{table} - Starting processing for {target_date}")
     processing_function = PROCESSING_FUNCTIONS[table]
@@ -81,7 +81,7 @@ def process_table_data(sport: Sport, table: str, **context) -> None:
 def mark_table_processed(sport: Sport, table: str, **context) -> None:
     """Mark date as processed in tracking file."""
     logical_date = context["logical_date"]
-    target_date = (logical_date - timedelta(days=2)).strftime("%Y-%m-%d")
+    target_date = (logical_date - timedelta(days=5)).strftime("%Y-%m-%d")
 
     tracking_path = (
         f"s3://{BUCKET_NAME}/dds/metadata/{sport}/{table}/processed_dates.json"
