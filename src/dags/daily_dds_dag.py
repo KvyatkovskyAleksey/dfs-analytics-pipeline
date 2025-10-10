@@ -136,9 +136,16 @@ with DAG(
                         trigger_rule="none_failed_min_one_success",
                     )
 
+                    # Task 4: Join point for both branches
+                    join = EmptyOperator(
+                        task_id=f"join_{table}_{sport}",
+                        trigger_rule="none_failed_min_one_success",
+                    )
+
                     # Dependencies within table group
                     check >> [skip, process]
                     process >> mark
+                    [skip, mark] >> join
 
                 # Store reference to this table's TaskGroup
                 table_groups[table] = table_group
