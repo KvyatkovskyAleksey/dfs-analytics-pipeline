@@ -1,4 +1,5 @@
 import gzip
+import json
 import logging
 import time
 from io import BytesIO
@@ -264,7 +265,12 @@ class DdsProcessor(BaseDuckDBProcessor):
             )
 
     def process_users_lineups_optimized(self):
-        """Process optimized data to DDS stage for a given date and sport"""
+        """Process users_and lineups data to DDS stage for a given date and sport, it looks like
+        if cleanup data with pandas and pass to duckdb, it works much faster. Probably because
+         there are many nested dicts with hashes in keys, and it's trying to make it flat and data gets too much
+        memory. If drop unused fields and manually parse the necessary structure, it works much faster and without
+        memory issues. (faster x5-9 times by tests)
+        """
         for slate_type in self.slate_types:
             users_path = f"{self.dds_base_path}{self.sport}/users/{slate_type}/{self.date}/data.parquet"
             lineups_path = f"{self.dds_base_path}{self.sport}/user_lineups/{slate_type}/{self.date}/data.parquet"
@@ -324,6 +330,91 @@ class DdsProcessor(BaseDuckDBProcessor):
 
         logger.info(f"Users and lineups data for {self.date} {self.sport} saved to DDS")
 
+    def process_lineups_optimized(self):
+        """Process lineups data to the DDS stage using pandas for faster processing.
+        Similar optimization as process_users_lineups_optimized - parse with pandas first,
+        then write with DuckDB. (faster x5-9 times by tests)
+        """
+        for slate_type in self.slate_types:
+            staging_lineups_path = f"{self.staging_base_path}{self.sport}/lineups/{slate_type}/{self.date}/data.json.gz"
+
+            # Check if a staging file exists before processing
+            if not self._s3_file_exists(staging_lineups_path):
+                logger.warning(
+                    f"Skipping {slate_type} for lineups - staging file not found: {staging_lineups_path}"
+                )
+                continue
+
+            lineups_path = f"{self.dds_base_path}{self.sport}/lineups/{slate_type}/{self.date}/data.parquet"
+
+            # 1. Load JSON from S3 at once
+            with self.s3.open(staging_lineups_path.replace("s3://", ""), "rb") as f:
+                compressed_data = f.read()
+            with gzip.open(BytesIO(compressed_data), "rt") as gz:
+                source_df = pd.read_json(gz, lines=True)
+
+            # 2. Extract slate_id and lineups
+            source_df = source_df[["slate_id", "lineups"]].copy()
+            source_df.rename(columns={"slate_id": "contest_id"}, inplace=True)
+
+            # 3. Get all unique position keys from the first lineup to determine dynamic columns
+            first_lineup = source_df["lineups"].iloc[0]
+            lineup_players = first_lineup.get("lineupPlayers", {})
+            position_keys = sorted(lineup_players.keys())
+
+            # 4. Extract lineup fields using pandas
+            lineups_df = source_df.apply(
+                lambda row: self._extract_lineup_fields(row, position_keys), axis=1
+            )
+
+            # 5. Write to parquet using DuckDB
+            self.con.execute(
+                f"COPY (SELECT * FROM lineups_df) TO '{lineups_path}' (FORMAT PARQUET, COMPRESSION 'SNAPPY')"
+            )
+
+        logger.info(f"Lineups data for {self.date} {self.sport} saved to DDS")
+
+    @staticmethod
+    def _extract_lineup_fields(row, position_keys):
+        """Extract lineup fields from a row with nested lineup data"""
+        lineup = row["lineups"]
+
+        # Base fields
+        result = {
+            "contest_id": row["contest_id"],
+            "lineup_hash": lineup.get("lineupHash"),
+            "lineup_ct": lineup.get("lineupCt"),
+            "lineup_user_ct": lineup.get("lineupUserCt"),
+            "points": lineup.get("points"),
+            "total_salary": lineup.get("totalSalary"),
+            "total_own": lineup.get("totalOwn"),
+            "min_own": lineup.get("minOwn"),
+            "max_own": lineup.get("maxOwn"),
+            "avg_own": lineup.get("avgOwn"),
+            "lineup_rank": lineup.get("lineupRank"),
+            "is_cashing": lineup.get("isCashing"),
+            "favorite_ct": lineup.get("favoriteCt"),
+            "underdog_ct": lineup.get("underdogCt"),
+            "home_ct": lineup.get("homeCt"),
+            "visitor_ct": lineup.get("visitorCt"),
+            "payout": lineup.get("payout"),
+            "lineup_percentile": lineup.get("lineupPercentile"),
+            "correlated_players": lineup.get("correlatedPlayers"),
+        }
+
+        # Dynamic position columns
+        lineup_players = lineup.get("lineupPlayers", {})
+        for pos_key in position_keys:
+            result[f"pos_{pos_key.lower()}"] = lineup_players.get(pos_key)
+
+        # Complex objects - convert to JSON strings for consistent storage
+        result["team_stacks"] = json.dumps(lineup.get("teamStacks")) if lineup.get("teamStacks") else None
+        result["game_stacks"] = json.dumps(lineup.get("gameStacks")) if lineup.get("gameStacks") else None
+        result["lineup_trends"] = json.dumps(lineup.get("lineupTrends")) if lineup.get("lineupTrends") else None
+        result["entry_name_list"] = json.dumps(lineup.get("entryNameList")) if lineup.get("entryNameList") else None
+
+        return pd.Series(result)
+
     @staticmethod
     def _extract_user_fields(row):
         user = row["users"]
@@ -354,7 +445,8 @@ if __name__ == "__main__":
     start = time.perf_counter()
     with DdsProcessor(sport="NFL", date="2025-09-07") as processor:
         # processor.process_players()
-        processor.process_users_lineups()
+        # processor.process_users_lineups()
         # processor.process_lineups()
+        processor.process_lineups_optimized()
         # processor.process_users_lineups_optimized()
     print(f"Script completed in {time.perf_counter() - start:.2f} seconds")
