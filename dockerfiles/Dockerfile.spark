@@ -32,8 +32,9 @@ COPY pyproject.toml ./
 RUN uv sync
 
 # Create notebooks directory and set permissions for the non-root user 'spark'
-RUN mkdir -p /opt/notebooks && \
+RUN mkdir -p /opt/notebooks /opt/spark-apps && \
     chown -R spark:spark /opt/spark-apps /opt/notebooks /opt/.venv
+
 
 # Switch to the non-root spark user
 USER spark
