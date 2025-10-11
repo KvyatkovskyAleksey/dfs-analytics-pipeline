@@ -1,4 +1,9 @@
+import gzip
 import logging
+import time
+from io import BytesIO
+
+import pandas as pd
 
 from scripts.base_duck_db_processor import BaseDuckDBProcessor
 from scripts.rotogrinders_scraper import SlateType
@@ -258,9 +263,93 @@ class DdsProcessor(BaseDuckDBProcessor):
                     (FORMAT PARQUET, COMPRESSION 'SNAPPY')"""
             )
 
+    def process_users_lineups_optimized(self):
+        """Process optimized data to DDS stage for a given date and sport"""
+        for slate_type in self.slate_types:
+            users_path = f"{self.dds_base_path}{self.sport}/users/{slate_type}/{self.date}/data.parquet"
+            lineups_path = f"{self.dds_base_path}{self.sport}/user_lineups/{slate_type}/{self.date}/data.parquet"
+
+            staging_path = f"{self.staging_base_path}{self.sport}/contest_analyze/{slate_type}/{self.date}/data.json.gz"
+            # 1 Check if a staging file exists before processing
+            if not self._s3_file_exists(staging_path):
+                logger.warning(
+                    f"Skipping {slate_type} for users_lineups - staging file not found: {staging_path}"
+                )
+                continue
+            with self.s3.open(staging_path.replace("s3://", ""), "rb") as f:
+                compressed_data = f.read()
+            with gzip.open(BytesIO(compressed_data), "rt") as gz:
+                source_df = pd.read_json(gz, lines=True)
+            source_df = source_df[["contest", "users"]].copy()
+            source_df["contest_id"] = source_df["contest"].apply(
+                lambda x: x["contestId"]
+            )
+            source_df["users"] = source_df["users"].apply(lambda x: list(x.values()))
+            exploded_source_df = source_df[["contest_id", "users"]].explode("users")
+            users_with_lineups_df = exploded_source_df.apply(
+                self._extract_user_fields, axis=1
+            )
+            # 2. Explode lineups (creates one row per lineup)
+            lineups_exploded = users_with_lineups_df[
+                ["contest_id", "user_id", "lineups"]
+            ].explode("lineups")
+
+            # 3. Extract lineup fields
+            lineups_df = pd.DataFrame(
+                {
+                    "contest_id": lineups_exploded["contest_id"],
+                    "user_id": lineups_exploded["user_id"],
+                    "lineup_hash": lineups_exploded["lineups"].apply(
+                        lambda x: x.get("lineupHash") if isinstance(x, dict) else None
+                    ),
+                    "lineup_ct": lineups_exploded["lineups"].apply(
+                        lambda x: x.get("lineupCt") if isinstance(x, dict) else None
+                    ),
+                }
+            )
+
+            # 4. Clean users_df (drop lineups column)
+            users_df = users_with_lineups_df.drop("lineups", axis=1)
+
+            # 5. Write to parquet
+            users_df.to_parquet(
+                users_path, engine="pyarrow", compression="snappy", index=False
+            )
+            lineups_df.to_parquet(
+                lineups_path, engine="pyarrow", compression="snappy", index=False
+            )
+
+    @staticmethod
+    def _extract_user_fields(row):
+        user = row["users"]
+        return pd.Series(
+            {
+                "contest_id": row["contest_id"],
+                "user_id": user["userId"],
+                "total_players": user.get("totalPlayers"),
+                "total_rosters": user.get("totalRosters"),
+                "unique_rosters": user.get("uniqueRosters"),
+                "max_exposure": user.get("maxExposure"),
+                "lineups_cashing": user.get("lineupsCashing"),
+                "lineups_in_percentile_1": user.get("lineupsInPercentile1"),
+                "lineups_in_percentile_2": user.get("lineupsInPercentile2"),
+                "lineups_in_percentile_5": user.get("lineupsInPercentile5"),
+                "lineups_in_percentile_10": user.get("lineupsInPercentile10"),
+                "lineups_in_percentile_20": user.get("lineupsInPercentile20"),
+                "lineups_in_percentile_50": user.get("lineupsInPercentile50"),
+                "total_entry_cost": user.get("totalEntryCost"),
+                "total_winning": user.get("totalWinning"),
+                "roi": user.get("roi"),
+                "lineups": list(user["lineups"].values()),  # Keep lineups
+            }
+        )
+
 
 if __name__ == "__main__":
+    start = time.perf_counter()
     with DdsProcessor(sport="NFL", date="2025-09-07") as processor:
         # processor.process_players()
-        processor.process_users_lineups()
+        # processor.process_users_lineups()
         # processor.process_lineups()
+        processor.process_users_lineups_optimized()
+    print(f"Script completed in {time.perf_counter() - start:.2f} seconds")
