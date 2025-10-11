@@ -33,7 +33,7 @@ class DdsProcessor(BaseDuckDBProcessor):
         for slate_type in self.slate_types:
             staging_path = f"{self.staging_base_path}{self.sport}/contests/{slate_type}/{self.date}/data.json.gz"
 
-            # Check if staging file exists before processing
+            # Check if a staging file exists before processing
             if not self._s3_file_exists(staging_path):
                 logger.warning(
                     f"Skipping {slate_type} for contests - staging file not found: {staging_path}"
@@ -76,7 +76,7 @@ class DdsProcessor(BaseDuckDBProcessor):
         for slate_type in self.slate_types:
             staging_path = f"{self.staging_base_path}{self.sport}/contest_analyze/{slate_type}/{self.date}/data.json.gz"
 
-            # Check if staging file exists before processing
+            # Check if a staging file exists before processing
             if not self._s3_file_exists(staging_path):
                 logger.warning(
                     f"Skipping {slate_type} for players - staging file not found: {staging_path}"
@@ -121,7 +121,7 @@ class DdsProcessor(BaseDuckDBProcessor):
         for slate_type in self.slate_types:
             staging_path = f"{self.staging_base_path}{self.sport}/contest_analyze/{slate_type}/{self.date}/data.json.gz"
 
-            # Check if staging file exists before processing
+            # Check if a staging file exists before processing
             if not self._s3_file_exists(staging_path):
                 logger.warning(
                     f"Skipping {slate_type} for users_lineups - staging file not found: {staging_path}"
@@ -189,7 +189,7 @@ class DdsProcessor(BaseDuckDBProcessor):
         for slate_type in self.slate_types:
             staging_lineups_path = f"{self.staging_base_path}{self.sport}/lineups/{slate_type}/{self.date}/data.json.gz"
 
-            # Check if staging file exists before processing
+            # Check if a staging file exists before processing
             if not self._s3_file_exists(staging_lineups_path):
                 logger.warning(
                     f"Skipping {slate_type} for lineups - staging file not found: {staging_lineups_path}"
@@ -282,7 +282,7 @@ class DdsProcessor(BaseDuckDBProcessor):
                 source_df = pd.read_json(gz, lines=True)
             source_df = source_df[["contest", "users"]].copy()
             source_df["contest_id"] = source_df["contest"].apply(
-                lambda x: x["contestId"]
+                lambda x: int(x["contestId"])
             )
             source_df["users"] = source_df["users"].apply(lambda x: list(x.values()))
             exploded_source_df = source_df[["contest_id", "users"]].explode("users")
@@ -308,16 +308,21 @@ class DdsProcessor(BaseDuckDBProcessor):
                 }
             )
 
-            # 4. Clean users_df (drop lineups column)
-            users_df = users_with_lineups_df.drop("lineups", axis=1)
+            # Remove rows with missing lineup data
+            lineups_df = lineups_df.dropna(subset=["lineup_hash"])
 
-            # 5. Write to parquet
-            users_df.to_parquet(
-                users_path, engine="pyarrow", compression="snappy", index=False
+            # 4. Clean users_df (drop the lineup column and remove duplicates)
+            users_df = users_with_lineups_df.drop("lineups", axis=1).drop_duplicates()
+
+            # 5. Write to parquet using DuckDB
+            self.con.execute(
+                f"COPY (SELECT * FROM users_df) TO '{users_path}' (FORMAT PARQUET, COMPRESSION 'SNAPPY')"
             )
-            lineups_df.to_parquet(
-                lineups_path, engine="pyarrow", compression="snappy", index=False
+            self.con.execute(
+                f"COPY (SELECT * FROM lineups_df) TO '{lineups_path}' (FORMAT PARQUET, COMPRESSION 'SNAPPY')"
             )
+
+        logger.info(f"Users and lineups data for {self.date} {self.sport} saved to DDS")
 
     @staticmethod
     def _extract_user_fields(row):
@@ -349,7 +354,7 @@ if __name__ == "__main__":
     start = time.perf_counter()
     with DdsProcessor(sport="NFL", date="2025-09-07") as processor:
         # processor.process_players()
-        # processor.process_users_lineups()
+        processor.process_users_lineups()
         # processor.process_lineups()
-        processor.process_users_lineups_optimized()
+        # processor.process_users_lineups_optimized()
     print(f"Script completed in {time.perf_counter() - start:.2f} seconds")
