@@ -153,4 +153,9 @@ with DAG(
             # Process tables SEQUENTIALLY (one at a time)
             # Individual tasks need up to 24GB, so parallel execution would exceed worker limit
             # Sequential: 1 task × 24GB = safe within 48GB worker limit
-            table_groups["contests"] >> table_groups["players"] >> table_groups["users_lineups"] >> table_groups["lineups"]
+            (
+                table_groups["contests"]
+                >> table_groups["players"]
+                >> table_groups["users_lineups"]
+                >> table_groups["lineups"]
+            )
