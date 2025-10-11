@@ -116,8 +116,8 @@ class DdsProcessor(BaseDuckDBProcessor):
             )
         logger.info(f"Players data for {self.date} {self.sport} saved to DDS")
 
-    def process_users_lineups(self):
-        """Save users and their lineup data to the DDS stage for a given date and sport"""
+    def process_users_lineups_deprecated(self):
+        """Save users and their lineup data to the DDS stage for a given date and sport (DEPRECATED - use process_users_lineups instead)"""
         logger.info(f"Processing users and lineups for {self.date} {self.sport}")
         for slate_type in self.slate_types:
             staging_path = f"{self.staging_base_path}{self.sport}/contest_analyze/{slate_type}/{self.date}/data.json.gz"
@@ -185,8 +185,8 @@ class DdsProcessor(BaseDuckDBProcessor):
             )
         logger.info(f"Users and lineups data for {self.date} {self.sport} saved to DDS")
 
-    def process_lineups(self):
-        """Process lineups data to DDS stage for a given date and sport"""
+    def process_lineups_deprecated(self):
+        """Process lineups data to DDS stage for a given date and sport (DEPRECATED - use process_lineups instead)"""
         for slate_type in self.slate_types:
             staging_lineups_path = f"{self.staging_base_path}{self.sport}/lineups/{slate_type}/{self.date}/data.json.gz"
 
@@ -264,12 +264,13 @@ class DdsProcessor(BaseDuckDBProcessor):
                     (FORMAT PARQUET, COMPRESSION 'SNAPPY')"""
             )
 
-    def process_users_lineups_optimized(self):
-        """Process users_and lineups data to DDS stage for a given date and sport, it looks like
-        if cleanup data with pandas and pass to duckdb, it works much faster. Probably because
-         there are many nested dicts with hashes in keys, and it's trying to make it flat and data gets too much
-        memory. If drop unused fields and manually parse the necessary structure, it works much faster and without
-        memory issues. (faster x5-9 times by tests)
+    def process_users_lineups(self):
+        """Process users and lineups data to DDS stage for a given date and sport.
+
+        Optimized version that uses pandas for parsing and DuckDB for writing.
+        Much faster than the deprecated version because it loads JSON from S3 once and
+        avoids DuckDB's slow json_each() on deeply nested structures with hash keys.
+        (5-9x faster by tests)
         """
         for slate_type in self.slate_types:
             users_path = f"{self.dds_base_path}{self.sport}/users/{slate_type}/{self.date}/data.parquet"
@@ -330,10 +331,13 @@ class DdsProcessor(BaseDuckDBProcessor):
 
         logger.info(f"Users and lineups data for {self.date} {self.sport} saved to DDS")
 
-    def process_lineups_optimized(self):
-        """Process lineups data to the DDS stage using pandas for faster processing.
-        Similar optimization as process_users_lineups_optimized - parse with pandas first,
-        then write with DuckDB. (faster x5-9 times by tests)
+    def process_lineups(self):
+        """Process lineups data to DDS stage for a given date and sport.
+
+        Optimized version that uses pandas for parsing and DuckDB for writing.
+        Much faster than the deprecated version because it loads JSON from S3 once and
+        avoids DuckDB's slow json_each() on deeply nested structures with hash keys.
+        (5-9x faster by tests)
         """
         for slate_type in self.slate_types:
             staging_lineups_path = f"{self.staging_base_path}{self.sport}/lineups/{slate_type}/{self.date}/data.json.gz"
@@ -408,10 +412,22 @@ class DdsProcessor(BaseDuckDBProcessor):
             result[f"pos_{pos_key.lower()}"] = lineup_players.get(pos_key)
 
         # Complex objects - convert to JSON strings for consistent storage
-        result["team_stacks"] = json.dumps(lineup.get("teamStacks")) if lineup.get("teamStacks") else None
-        result["game_stacks"] = json.dumps(lineup.get("gameStacks")) if lineup.get("gameStacks") else None
-        result["lineup_trends"] = json.dumps(lineup.get("lineupTrends")) if lineup.get("lineupTrends") else None
-        result["entry_name_list"] = json.dumps(lineup.get("entryNameList")) if lineup.get("entryNameList") else None
+        result["team_stacks"] = (
+            json.dumps(lineup.get("teamStacks")) if lineup.get("teamStacks") else None
+        )
+        result["game_stacks"] = (
+            json.dumps(lineup.get("gameStacks")) if lineup.get("gameStacks") else None
+        )
+        result["lineup_trends"] = (
+            json.dumps(lineup.get("lineupTrends"))
+            if lineup.get("lineupTrends")
+            else None
+        )
+        result["entry_name_list"] = (
+            json.dumps(lineup.get("entryNameList"))
+            if lineup.get("entryNameList")
+            else None
+        )
 
         return pd.Series(result)
 
@@ -446,7 +462,5 @@ if __name__ == "__main__":
     with DdsProcessor(sport="NFL", date="2025-09-07") as processor:
         # processor.process_players()
         # processor.process_users_lineups()
-        # processor.process_lineups()
-        processor.process_lineups_optimized()
-        # processor.process_users_lineups_optimized()
+        processor.process_lineups()
     print(f"Script completed in {time.perf_counter() - start:.2f} seconds")
