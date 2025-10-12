@@ -16,7 +16,7 @@ class DdsProcessor(BaseDuckDBProcessor):
     """Process staging data to DDS"""
 
     slate_types: list[SlateType] = ["dk_classic", "dk_single_game"]
-    MAX_OBJECT_SIZE = 256 * 1024 * 1024  # we sometimes have large JSON objects,
+    MAX_OBJECT_SIZE = 512 * 1024 * 1024  # we sometimes have large JSON objects,
     # so for handle it we need to increase max object size for read
 
     def __init__(self, *args, **kwargs):
