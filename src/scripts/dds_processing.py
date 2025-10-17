@@ -64,5 +64,19 @@ def process_lineups_to_dds(date: str, sport: Sport) -> None:
     logger.info(f"Completed lineups processing for {sport} on {date}")
 
 
+def process_draft_groups_to_dds(date: str, sport: Sport) -> None:
+    """
+    Process draft groups data from staging to DDS.
+
+    Args:
+        date: Date in YYYY-MM-DD format
+        sport: Sport type (e.g., "NFL", "NBA")
+    """
+    logger.info(f"Starting draft_groups processing for {sport} on {date}")
+    with DdsProcessor(sport=sport, date=date) as processor:
+        processor.process_draft_groups()
+    logger.info(f"Completed draft_groups processing for {sport} on {date}")
+
+
 if __name__ == "__main__":
     process_players_to_dds("2025-09-10", "NFL")

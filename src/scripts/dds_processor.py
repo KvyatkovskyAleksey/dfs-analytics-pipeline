@@ -116,6 +116,59 @@ class DdsProcessor(BaseDuckDBProcessor):
             )
         logger.info(f"Players data for {self.date} {self.sport} saved to DDS")
 
+    def process_draft_groups(self) -> None:
+        """Save draft groups data to DDS stage for a given date and sport"""
+        logger.info(f"Processing draft_groups for {self.date} {self.sport}")
+
+        # Mapping of slate types to source IDs
+        slate_type_to_source_id = {"dk_classic": 4, "dk_single_game": 8}
+
+        # Single staging file contains all source IDs
+        staging_path = f"{self.staging_base_path}{self.sport}/draft_groups/{self.date}/data.json.gz"
+
+        # Check if staging file exists
+        if not self._s3_file_exists(staging_path):
+            logger.warning(
+                f"Skipping draft_groups - staging file not found: {staging_path}"
+            )
+            return
+
+        # Process each slate type by filtering on source_id
+        for slate_type, source_id in slate_type_to_source_id.items():
+            dds_path = f"{self.dds_base_path}{self.sport}/draft_groups/{slate_type}/{self.date}/data.parquet"
+
+            # Derive date_id as INTEGER in YYYYMMDD format
+            date_id = self.date.replace("-", "")
+
+            self.con.execute(
+                f"""
+                COPY (
+                    SELECT DISTINCT
+                        (dg.unnest ->> 'id')::INTEGER as draft_group_id,
+                        (dg.unnest ->> 'contest_start_date')::TIMESTAMP as contest_start_date,
+                        (dg.unnest ->> 'contest_end_date')::TIMESTAMP as contest_end_date,
+                        dg.unnest ->> 'contest_suffix' as contest_suffix,
+                        (dg.unnest ->> 'draft_group_id')::INTEGER as draft_group_reference_id,
+                        (dg.unnest ->> 'game_count')::INTEGER as game_count,
+                        (dg.unnest ->> 'is_simlabs')::BOOLEAN as is_simlabs,
+                        (dg.unnest -> 'sport' ->> 'id')::INTEGER as sport_id,
+                        ("contest-sources" ->> 'id')::INTEGER as source_id,
+                        "contest-sources" ->> 'source_name' as source_name,
+                        "contest-sources" ->> 'display_name' as display_name,
+                        "contest-sources" ->> 'short_name' as short_name,
+                        ("contest-sources" ->> 'is_primary')::BOOLEAN as is_primary,
+                        ("contest-sources" ->> 'is_active')::BOOLEAN as is_active,
+                        {date_id}::INTEGER as date_id
+                    FROM read_json_auto('{staging_path}', maximum_object_size={self.MAX_OBJECT_SIZE}),
+                         unnest("contest-sources".draft_groups) as dg
+                    WHERE ("contest-sources" ->> 'id')::INTEGER = {source_id}
+                ) TO '{dds_path}' (FORMAT PARQUET, COMPRESSION 'SNAPPY')
+                """
+            )
+            logger.info(f"Draft groups data for {slate_type} saved to {dds_path}")
+
+        logger.info(f"Draft groups data for {self.date} {self.sport} saved to DDS")
+
     def process_users_lineups_deprecated(self):
         """Save users and their lineup data to the DDS stage for a given date and sport (DEPRECATED - use process_users_lineups instead)"""
         logger.info(f"Processing users and lineups for {self.date} {self.sport}")
@@ -462,5 +515,6 @@ if __name__ == "__main__":
     with DdsProcessor(sport="NFL", date="2025-09-07") as processor:
         # processor.process_players()
         # processor.process_users_lineups()
-        processor.process_lineups()
+        # processor.process_lineups()
+        processor.process_draft_groups()
     print(f"Script completed in {time.perf_counter() - start:.2f} seconds")

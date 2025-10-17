@@ -16,6 +16,7 @@ from scripts.dds_processing import (
     process_players_to_dds,
     process_users_lineups_to_dds,
     process_lineups_to_dds,
+    process_draft_groups_to_dds,
 )
 from scripts.date_tracker import DateTracker
 from scripts.rotogrinders_scraper import Sport
@@ -27,7 +28,7 @@ BUCKET_NAME = os.getenv("WASABI_BUCKET_NAME")
 
 # Configuration
 SPORTS: list[Sport] = ["NFL"]  # Add more sports here: ["NFL", "NBA", "MLB"]
-DDS_TABLES = ["contests", "players", "users_lineups", "lineups"]
+DDS_TABLES = ["contests", "players", "users_lineups", "lineups", "draft_groups"]
 
 # Mapping of table names to processing functions
 PROCESSING_FUNCTIONS = {
@@ -35,6 +36,7 @@ PROCESSING_FUNCTIONS = {
     "players": process_players_to_dds,
     "users_lineups": process_users_lineups_to_dds,
     "lineups": process_lineups_to_dds,
+    "draft_groups": process_draft_groups_to_dds,
 }
 
 default_args = {

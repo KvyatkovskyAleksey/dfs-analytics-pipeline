@@ -6,6 +6,7 @@ This document describes the normalized data structures in the DDS (Data Detail S
 
 ```
 s3://{BUCKET_NAME}/dds/{SPORT}/
+├── draft_groups/{GAME_TYPE}/{DATE}/data.parquet
 ├── players/{GAME_TYPE}/{DATE}/data.parquet
 ├── users/{GAME_TYPE}/{DATE}/data.parquet
 ├── user_lineups/{GAME_TYPE}/{DATE}/data.parquet
@@ -14,7 +15,86 @@ s3://{BUCKET_NAME}/dds/{SPORT}/
 
 ---
 
-## 1. Players Table
+## 1. Draft Groups Table
+
+**Path**: `dds/{SPORT}/draft_groups/{GAME_TYPE}/{DATE}/data.parquet`
+
+Contains metadata about contest slates and game types available on a given date. This is the foundational table that defines available contest formats.
+
+### Schema
+
+| Column | Type | Nullable | Description |
+|--------|------|----------|-------------|
+| `draft_group_id` | INTEGER | No | Unique slate identifier (primary key) |
+| `contest_start_date` | TIMESTAMP | Yes | When contests begin |
+| `contest_end_date` | TIMESTAMP | Yes | When contests end |
+| `contest_suffix` | VARCHAR | Yes | Slate suffix (e.g., "(KC @ JAX)" for single game) |
+| `draft_group_reference_id` | INTEGER | Yes | External reference ID |
+| `game_count` | INTEGER | Yes | Number of games in this slate |
+| `is_simlabs` | BOOLEAN | Yes | Whether this is a SimLabs slate |
+| `sport_id` | INTEGER | Yes | Sport identifier (1=NFL) |
+| `source_id` | INTEGER | Yes | Contest source ID (4=dk_classic, 8=dk_single_game) |
+| `source_name` | VARCHAR | Yes | Full source name (e.g., "draftkings.com") |
+| `display_name` | VARCHAR | Yes | Display name (e.g., "DraftKings") |
+| `short_name` | VARCHAR | Yes | Short name (e.g., "dk") |
+| `is_primary` | BOOLEAN | Yes | Whether this is a primary source |
+| `is_active` | BOOLEAN | Yes | Whether source is currently active |
+| `date_id` | INTEGER | Yes | Date in YYYYMMDD format |
+
+### Example Row
+
+```
+draft_group_id: 126738
+contest_start_date: 2025-10-05 13:00:00
+contest_end_date: 0001-01-01 00:00:00
+contest_suffix: ""
+draft_group_reference_id: 134675
+game_count: 10
+is_simlabs: false
+sport_id: 1
+source_id: 4
+source_name: "draftkings.com"
+display_name: "DraftKings"
+short_name: "dk"
+is_primary: false
+is_active: true
+date_id: 20251005
+```
+
+### Usage
+
+**Key Analytics**:
+- Slate availability tracking by date and game type
+- Game count distribution analysis (single game vs multi-game)
+- Contest format popularity over time
+
+**Queries**:
+```sql
+-- Find all available slates for NFL on a specific date
+SELECT
+    draft_group_id,
+    contest_start_date,
+    game_count,
+    contest_suffix,
+    source_name
+FROM draft_groups
+WHERE date_id = 20250907
+ORDER BY contest_start_date;
+
+-- Analyze slate structure by game type
+SELECT
+    source_id,
+    display_name,
+    AVG(game_count) as avg_games,
+    COUNT(*) as slate_count
+FROM draft_groups
+WHERE date_id BETWEEN 20250901 AND 20250930
+GROUP BY source_id, display_name;
+```
+
+---
+
+## 2. Players Table
 
 **Path**: `dds/{SPORT}/players/{GAME_TYPE}/{DATE}/data.parquet`
 
@@ -101,7 +181,7 @@ GROUP BY ownership_tier;
 
 ---
 
-## 2. Users Table
+## 3. Users Table
 
 **Path**: `dds/{SPORT}/users/{GAME_TYPE}/{DATE}/data.parquet`
 
@@ -185,7 +265,7 @@ GROUP BY strategy;
 
 ---
 
-## 3. User Lineups Table
+## 4. User Lineups Table
 
 **Path**: `dds/{SPORT}/user_lineups/{GAME_TYPE}/{DATE}/data.parquet`
 
@@ -235,7 +315,7 @@ WHERE u.roi > 50;
 
 ---
 
-## 4. Lineups Table
+## 5. Lineups Table
 
 **Path**: `dds/{SPORT}/lineups/{GAME_TYPE}/{DATE}/data.parquet`
 
