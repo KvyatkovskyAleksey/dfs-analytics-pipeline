@@ -30,7 +30,7 @@ class DateTracker:
         """Load scraped dates from S3, return an empty list if not exists."""
         try:
             # Use pandas to read JSON from S3
-            with pd.io.common.get_handle(
+            with pd.io.common.get_handle( # type: ignore
                 self.s3_path, mode="r", storage_options=self.storage_options
             ) as handles:
                 data = json.load(handles.handle)
@@ -42,7 +42,7 @@ class DateTracker:
     def _save_dates(self) -> None:
         """Save scraped dates to S3."""
         # Write using pandas s3fs
-        with pd.io.common.get_handle(
+        with pd.io.common.get_handle( # type: ignore
             self.s3_path, mode="w", storage_options=self.storage_options
         ) as handles:
             json.dump(sorted(self._dates), handles.handle, indent=2)
