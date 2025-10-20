@@ -21,7 +21,11 @@ logger = logging.getLogger(__name__)
 BUCKET_NAME = os.getenv("WASABI_BUCKET_NAME")
 
 # Configuration
-SPORTS: list[Sport] = ["NFL"]  # Add more sports here: ["NFL", "NBA", "MLB"]
+SPORTS: list[Sport] = [
+    "NFL",
+    "NHL",
+    "NBA",
+]  # Add more sports here: ["NFL", "NBA", "MLB"]
 
 default_args = {
     "owner": "airflow",

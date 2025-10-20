@@ -13,7 +13,7 @@ from scripts.utils.proxy import ProxyManager
 
 logger = logging.getLogger("RotogrindersScraper")
 
-Sport = Literal["NFL"]
+Sport = Literal["NFL", "NBA", "NHL"]
 SlateType = Literal["dk_classic", "dk_single_game"]
 
 
@@ -32,7 +32,7 @@ class RotogrindersScraper:
 
     MAX_REQUESTS_RETRIES = 3
 
-    sports_mapping: dict[Sport, int] = {"NFL": 1}
+    sports_mapping: dict[Sport, int] = {"NFL": 1, "NHL": 4, "NBA": 2}
 
     partition_naming_by_sources: dict[int, SlateType] = {
         4: "dk_classic",
