@@ -35,6 +35,7 @@ class RotogrindersScraper:
     sports_mapping: dict[Sport, int] = {"NFL": 1, "NHL": 4, "NBA": 2}
 
     partition_naming_by_sources: dict[int, SlateType] = {
+        3: "fd_classic",
         4: "dk_classic",
         8: "dk_single_game",
         9: "fd_anyflex",
@@ -209,6 +210,6 @@ class RotogrindersScraper:
 
 
 if __name__ == "__main__":
-    scraper = RotogrindersScraper(date="2023-10-21", sport="NHL")
+    scraper = RotogrindersScraper(date="2024-01-06", sport="NHL")
     scraper.scrape()
     data = scraper.get_data()
