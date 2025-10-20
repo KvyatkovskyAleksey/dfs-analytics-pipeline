@@ -14,7 +14,7 @@ from scripts.utils.proxy import ProxyManager
 logger = logging.getLogger("RotogrindersScraper")
 
 Sport = Literal["NFL", "NBA", "NHL"]
-SlateType = Literal["dk_classic", "dk_single_game"]
+SlateType = Literal["dk_classic", "dk_single_game", "fd_anyflex"]
 
 
 class StagingData(TypedDict):
@@ -37,6 +37,7 @@ class RotogrindersScraper:
     partition_naming_by_sources: dict[int, SlateType] = {
         4: "dk_classic",
         8: "dk_single_game",
+        9: "fd_anyflex",
     }
     headers = {
         "accept": "*/*",
@@ -208,6 +209,6 @@ class RotogrindersScraper:
 
 
 if __name__ == "__main__":
-    scraper = RotogrindersScraper(date="2025-10-01", sport="NFL")
+    scraper = RotogrindersScraper(date="2023-10-21", sport="NHL")
     scraper.scrape()
     data = scraper.get_data()
