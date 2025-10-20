@@ -16,10 +16,10 @@ logger = logging.getLogger(__name__)
 
 class MinPointsProcessor(BaseDuckDBProcessor):
     """
-    Process minimum points data from DDS layer and send to external API.
+    Process minimum points data from the DDS layer and send to external API.
 
     Queries contests and lineups to determine minimum points needed to cash
-    in each contest, then sends formatted data to configured API endpoint.
+    in each contest, then sends formatted data to a configured API endpoint.
     """
 
     def __init__(
@@ -35,7 +35,7 @@ class MinPointsProcessor(BaseDuckDBProcessor):
             sport: Sport type (e.g., "NFL")
             start_date: Optional start date in YYYY-MM-DD format
             end_date: Optional end date in YYYY-MM-DD format
-                     If dates not provided, processes all available data
+                     If dates are not provided, processes all available data
         """
         super().__init__()
         self.sport = sport
@@ -55,6 +55,7 @@ class MinPointsProcessor(BaseDuckDBProcessor):
             f"Initialized MinPointsProcessor for {sport} "
             f"(date range: {start_date or 'all'} to {end_date or 'all'})"
         )
+        self.api_url = self.api_url.replace("{sport}", self.sport.lower())
 
     def _build_date_path_pattern(self) -> Union[str, List[str]]:
         """
@@ -79,11 +80,11 @@ class MinPointsProcessor(BaseDuckDBProcessor):
         )
         end = datetime.strptime(self.end_date, "%Y-%m-%d") if self.end_date else None
 
-        # If both dates are in the same month, use simple pattern
+        # If both dates are in the same month, use a simple pattern
         if start and end and start.year == end.year and start.month == end.month:
             return f"{start.year}-{start.month:02d}-*"
 
-        # If spanning multiple months, generate list of patterns
+        # If spanning multiple months, generate a list of patterns
         if start and end:
             months = []
             current = start.replace(day=1)
@@ -103,7 +104,9 @@ class MinPointsProcessor(BaseDuckDBProcessor):
         # Fallback to all dates
         return "*"
 
-    def _filter_existing_paths(self, paths: Union[str, List[str]]) -> Union[str, List[str], None]:
+    def _filter_existing_paths(
+        self, paths: Union[str, List[str]]
+    ) -> Union[str, List[str], None]:
         """
         Filter S3 paths to only include those that actually exist.
 
@@ -136,7 +139,9 @@ class MinPointsProcessor(BaseDuckDBProcessor):
                     logger.warning(f"No files found for path: {path}")
 
             if existing_paths:
-                logger.info(f"Found data for {len(existing_paths)}/{len(paths)} month patterns")
+                logger.info(
+                    f"Found data for {len(existing_paths)}/{len(paths)} month patterns"
+                )
                 return existing_paths
             else:
                 logger.warning(f"No files found for any of {len(paths)} paths")
@@ -168,23 +173,26 @@ class MinPointsProcessor(BaseDuckDBProcessor):
 
     def get_min_points_data(self) -> pd.DataFrame:
         """
-        Query DDS layer to get minimum and maximum points data for contests.
+        Query DDS layer to get minimum points, maximum points, and percentile thresholds for slates.
+
+        Returns one record per slate_id, using data from the largest contest in that slate.
 
         Returns:
-            DataFrame with columns: slate_id, contest_id, min_points,
-                                   max_points, cash_line, lineup_rank, date_id
+            DataFrame with columns: slate_id, min_points, max_points,
+                                   top_5_percentile_points, top_10_percentile_points,
+                                   top_15_percentile_points, cash_line, max_lineup_rank, date_id
 
         Raises:
-            Exception: If query fails or data cannot be retrieved
+            Exception: If the query fails or data cannot be retrieved
         """
         logger.info(f"Querying minimum points data for {self.sport}...")
 
         # Build S3 paths with month-based filtering to minimize data loading
         date_pattern = self._build_date_path_pattern()
 
-        # Build path lists based on date pattern type
+        # Build path lists based on a date pattern type
         if isinstance(date_pattern, list):
-            # Multiple months - create list of paths for each month
+            # Multiple months - create a list of paths for each month
             dds_contests_path = [
                 f"s3://{self.bucket_name}/dds/{self.sport}/contests/*/{month}/data.parquet"
                 for month in date_pattern
@@ -193,21 +201,28 @@ class MinPointsProcessor(BaseDuckDBProcessor):
                 f"s3://{self.bucket_name}/dds/{self.sport}/lineups/*/{month}/data.parquet"
                 for month in date_pattern
             ]
+            draft_groups_path = [
+                f"s3://{self.bucket_name}/dds/{self.sport}/draft_groups/*/{month}/data.parquet"
+                for month in date_pattern
+            ]
         else:
             # Single pattern (string)
             dds_contests_path = f"s3://{self.bucket_name}/dds/{self.sport}/contests/*/{date_pattern}/data.parquet"
             lineups_path = f"s3://{self.bucket_name}/dds/{self.sport}/lineups/*/{date_pattern}/data.parquet"
+            draft_groups_path = f"s3://{self.bucket_name}/dds/{self.sport}/draft_groups/*/{date_pattern}/data.parquet"
 
         logger.debug(f"Using date pattern: {date_pattern}")
         logger.debug(f"Contests path (before filtering): {dds_contests_path}")
         logger.debug(f"Lineups path (before filtering): {lineups_path}")
+        logger.debug(f"Draft groups path (before filtering): {draft_groups_path}")
 
         # Filter paths to only include those that actually exist on S3
         dds_contests_path = self._filter_existing_paths(dds_contests_path)
         lineups_path = self._filter_existing_paths(lineups_path)
+        draft_groups_path = self._filter_existing_paths(draft_groups_path)
 
         # If no paths exist, return empty DataFrame
-        if not dds_contests_path or not lineups_path:
+        if not dds_contests_path or not lineups_path or not draft_groups_path:
             logger.warning(
                 f"No data found for {self.sport} in date range "
                 f"{self.start_date or 'all'} to {self.end_date or 'all'}"
@@ -218,70 +233,138 @@ class MinPointsProcessor(BaseDuckDBProcessor):
                     "contest_id",
                     "min_points",
                     "max_points",
+                    "top_5_percentile_points",
+                    "top_10_percentile_points",
+                    "top_15_percentile_points",
                     "cash_line",
-                    "lineup_rank",
+                    "max_lineup_rank",
                     "date_id",
                 ]
             )
 
         logger.debug(f"Contests path (after filtering): {dds_contests_path}")
         logger.debug(f"Lineups path (after filtering): {lineups_path}")
+        logger.debug(f"Draft groups path (after filtering): {draft_groups_path}")
 
         # Build exact date filter for SQL (secondary filter for exact day boundaries)
         date_filter = self._build_date_filter()
 
         # Format paths for SQL query
         if isinstance(dds_contests_path, list):
-            # Convert list to SQL array format: ['path1', 'path2', ...]
+            # Convert a list to SQL array format: ['path1', 'path2', ...]
             contests_path_sql = str(dds_contests_path)
             lineups_path_sql = str(lineups_path)
+            draft_groups_path_sql = str(draft_groups_path)
         else:
             # Single path - wrap in quotes
             contests_path_sql = f"'{dds_contests_path}'"
             lineups_path_sql = f"'{lineups_path}'"
+            draft_groups_path_sql = f"'{draft_groups_path}'"
 
-        # Query to get minimum points for each contest
+        # Query to get minimum points and percentile thresholds for each contest
         query = f"""
         WITH contests AS (
             SELECT
                 contest_id,
-                contest_group_id AS slate_id,
+                contest_group_id AS draft_group_id,
                 cash_line,
                 date_id
             FROM read_parquet({contests_path_sql}, union_by_name=true)
             WHERE is_largest_by_size = TRUE
                 {date_filter}
         ),
-        lineups AS (
+        draft_groups AS (
+            SELECT
+                draft_group_id,
+                draft_group_reference_id AS slate_id
+            FROM read_parquet({draft_groups_path_sql}, union_by_name=true)
+        ),
+        lineups_cashing AS (
             SELECT
                 contest_id,
                 MIN(points) AS min_points,
                 MAX(points) AS max_points,
-                MAX(lineup_rank) AS lineup_rank
+                MAX(lineup_rank) AS max_lineup_rank
             FROM read_parquet({lineups_path_sql}, union_by_name=true)
             WHERE is_cashing = TRUE
             GROUP BY contest_id
+        ),
+        percentile_ranks AS (
+            SELECT
+                contest_id,
+                MAX(lineup_rank) AS total_entries,
+                -- Calculate lineup_rank cutoffs for each percentile
+                CAST(CEIL(MAX(lineup_rank) * 0.05) AS INTEGER) AS rank_5_percentile,
+                CAST(CEIL(MAX(lineup_rank) * 0.10) AS INTEGER) AS rank_10_percentile,
+                CAST(CEIL(MAX(lineup_rank) * 0.15) AS INTEGER) AS rank_15_percentile
+            FROM read_parquet({lineups_path_sql}, union_by_name=true)
+            GROUP BY contest_id
+        ),
+        percentile_points AS (
+            SELECT
+                l.contest_id,
+                -- Get points for lineup closest to each percentile rank
+                -- ARG_MAX returns points for the lineup with max rank that's <= percentile cutoff
+                ARG_MAX(l.points, CASE WHEN l.lineup_rank <= pr.rank_5_percentile THEN l.lineup_rank ELSE NULL END) AS top_5_percentile_points,
+                ARG_MAX(l.points, CASE WHEN l.lineup_rank <= pr.rank_10_percentile THEN l.lineup_rank ELSE NULL END) AS top_10_percentile_points,
+                ARG_MAX(l.points, CASE WHEN l.lineup_rank <= pr.rank_15_percentile THEN l.lineup_rank ELSE NULL END) AS top_15_percentile_points
+            FROM read_parquet({lineups_path_sql}, union_by_name=true) l
+            INNER JOIN percentile_ranks pr ON l.contest_id = pr.contest_id
+            WHERE l.lineup_rank <= pr.rank_15_percentile
+            GROUP BY l.contest_id
         )
         SELECT DISTINCT
-            contests.slate_id,
+            draft_groups.slate_id,
             contests.contest_id,
-            lineups.min_points,
-            lineups.max_points,
+            lineups_cashing.min_points,
+            lineups_cashing.max_points,
+            percentile_points.top_5_percentile_points,
+            percentile_points.top_10_percentile_points,
+            percentile_points.top_15_percentile_points,
             contests.cash_line,
-            lineups.lineup_rank,
-            contests.date_id
+            lineups_cashing.max_lineup_rank
         FROM contests
-        INNER JOIN lineups ON contests.contest_id = lineups.contest_id
-        ORDER BY contests.date_id DESC, contests.slate_id, contests.contest_id
+        LEFT JOIN lineups_cashing ON contests.contest_id = lineups_cashing.contest_id
+        JOIN draft_groups ON contests.draft_group_id = draft_groups.draft_group_id
+        LEFT JOIN percentile_points ON contests.contest_id = percentile_points.contest_id
+        ORDER BY contests.date_id DESC, draft_groups.slate_id, contests.contest_id
         """
 
         logger.debug(f"Executing query:\n{query}")
 
         try:
             result_df = self.con.execute(query).df()
+            total_records = len(result_df)
+
+            # Keep only the largest contest per slate_id
+            # Sort by max_lineup_rank descending, then keep first record per slate_id
+            result_df = result_df.sort_values(
+                "max_lineup_rank", ascending=False, na_position="last"
+            )
+            result_df = result_df.drop_duplicates(subset=["slate_id"], keep="first")
+            records_after_dedup = len(result_df)
+
+            # Drop the contest_id column since we're aggregating at slate level
+            result_df = result_df.drop(columns=["contest_id"])
+
+            # Drop rows with NaN values - we only want complete records
+            result_df = result_df.dropna(
+                subset=[
+                    "slate_id",
+                    "min_points",
+                    "max_points",
+                    "top_5_percentile_points",
+                    "top_10_percentile_points",
+                    "top_15_percentile_points",
+                    "max_lineup_rank",
+                ]
+            )
+
             logger.info(
-                f"Retrieved {len(result_df)} contest records "
-                f"(with min_points: {result_df['min_points'].notna().sum()})"
+                f"Retrieved {total_records} contest records, "
+                f"deduplicated to {records_after_dedup} slate records (one per slate), "
+                f"kept {len(result_df)} complete records after dropping NaN values "
+                f"(dropped {total_records - len(result_df)} total)"
             )
             return result_df
         except Exception as e:
@@ -321,7 +404,7 @@ class MinPointsProcessor(BaseDuckDBProcessor):
             "Content-Type": "application/json",
         }
         if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
+            headers["X-Secret-Authentication"] = self.api_key
 
         # Send request
         logger.info(f"Sending {len(data)} records to API: {self.api_url}")
@@ -369,7 +452,7 @@ class MinPointsProcessor(BaseDuckDBProcessor):
         # Get data
         data = self.get_min_points_data()
 
-        # Send to API
+        # Send it to API
         self.send_to_api(data)
 
         result = {
