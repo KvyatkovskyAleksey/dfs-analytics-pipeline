@@ -39,6 +39,7 @@ class RotogrindersScraper:
         4: "dk_classic",
         8: "dk_single_game",
         9: "fd_anyflex",
+        11: "yh_classic",
     }
     headers = {
         "accept": "*/*",
@@ -210,6 +211,6 @@ class RotogrindersScraper:
 
 
 if __name__ == "__main__":
-    scraper = RotogrindersScraper(date="2024-01-06", sport="NHL")
+    scraper = RotogrindersScraper(date="2025-03-05", sport="NHL")
     scraper.scrape()
     data = scraper.get_data()
