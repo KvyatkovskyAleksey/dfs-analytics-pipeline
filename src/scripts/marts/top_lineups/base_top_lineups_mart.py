@@ -1,4 +1,5 @@
 import logging
+import time
 
 from scripts.base_duck_db_processor import BaseDuckDBProcessor
 from scripts.marts.top_lineups import configs
@@ -148,22 +149,22 @@ class BaseTopLineupsMart(BaseDuckDBProcessor):
             [f"pos_{p}" for p in self.config.positions]
         )
 
-    def process(self) -> None:
-        """Execute the mart generation query."""
-        logger.info(
-            f"Processing top lineups mart for {self.config.sport} - {self.config.game_type}"
-        )
-        logger.info(f"  Positions: {self.config.positions}")
-        logger.info(f"  Percentile threshold: {self.config.percentile_threshold}")
-        logger.info(f"  Output: {self.output_full_path}")
+    def _build_query(self) -> str:
+        """
+        Build the SQL query for generating the top lineups mart.
 
+        This method can be overridden by subclasses to customize the query
+        (e.g., add union_by_name, additional filters, etc.).
+
+        Returns:
+            SQL query string
+        """
         # Generate dynamic SQL components
         pos_names, pos_columns = self._generate_unnest_sql()
         select_clauses = self._generate_select_clauses()
         roster_filter = self._generate_roster_position_filter()
         lineup_columns = self._generate_lineup_columns_sql()
 
-        # Build complete query
         query = f"""
             COPY (
                 WITH
@@ -222,6 +223,19 @@ class BaseTopLineupsMart(BaseDuckDBProcessor):
             ) TO '{self.output_full_path}'
             (FORMAT PARQUET, COMPRESSION 'SNAPPY')
             """
+        return query
+
+    def process(self) -> None:
+        """Execute the mart generation query."""
+        logger.info(
+            f"Processing top lineups mart for {self.config.sport} - {self.config.game_type}"
+        )
+        logger.info(f"  Positions: {self.config.positions}")
+        logger.info(f"  Percentile threshold: {self.config.percentile_threshold}")
+        logger.info(f"  Output: {self.output_full_path}")
+
+        query = self._build_query()
+        print(query)
 
         self.con.execute(query)
 
@@ -229,5 +243,7 @@ class BaseTopLineupsMart(BaseDuckDBProcessor):
 
 
 if __name__ == "__main__":
-    with BaseTopLineupsMart(config=configs.DK_SINGLE_GAME_NFL_CONFIG) as processor:
+    start = time.perf_counter()
+    with BaseTopLineupsMart(config=configs.DK_CLASSIC_NFL_CONFIG) as processor:
         processor.process()
+    print(f"Total time: {time.perf_counter() - start:.2f}s")

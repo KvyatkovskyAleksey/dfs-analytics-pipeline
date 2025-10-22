@@ -38,6 +38,7 @@ DK_SINGLE_GAME_NFL_CONFIG = TopLineupsMartConfig(
     roster_position_mapping={"cpt1": "CPT"},
 )
 
+# fixme need to check actual positions before usage
 # DraftKings Single Game - NBA
 DK_SINGLE_GAME_NBA_CONFIG = TopLineupsMartConfig(
     sport="NBA",
@@ -48,6 +49,7 @@ DK_SINGLE_GAME_NBA_CONFIG = TopLineupsMartConfig(
     roster_position_mapping={"cpt1": "CPT"},
 )
 
+# fixme need to check actual positions before usage
 # DraftKings Single Game - NHL
 DK_SINGLE_GAME_NHL_CONFIG = TopLineupsMartConfig(
     sport="NHL",
@@ -56,4 +58,22 @@ DK_SINGLE_GAME_NHL_CONFIG = TopLineupsMartConfig(
     percentile_threshold=0.01,
     output_path="top_lineups/NHL/dk_single_game/data.parquet",
     roster_position_mapping={"cpt1": "CPT"},
+)
+
+DK_CLASSIC_NFL_CONFIG = TopLineupsMartConfig(
+    sport="NFL",
+    game_type="dk_classic",
+    positions=[
+        "dst1",
+        "flex1",
+        "qb1",
+        "rb1",
+        "rb2",
+        "te1",
+        "wr1",
+        "wr2",
+        "wr3",
+    ],
+    percentile_threshold=0.01,
+    output_path="top_lineups/NFL/dk_classic/data.parquet",
 )
