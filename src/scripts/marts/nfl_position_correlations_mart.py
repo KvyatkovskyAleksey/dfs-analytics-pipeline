@@ -16,7 +16,9 @@ class NFLPositionCorrelationsMart(BaseDuckDBProcessor):
 
     def process(self):
         players_path = f"{self.base_dds_stage}{self.sport}/players/*/*/data.parquet"
-        mart_path = f"{self.marts_base_path}nfl_position_correlations/data.parquet"
+        mart_path = (
+            f"{self.marts_base_path}{self.sport.lower()}_correlations/data.parquet"
+        )
 
         logger.info(f"Processing NFL position correlations mart for {self.sport}")
 
