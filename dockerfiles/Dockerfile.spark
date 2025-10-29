@@ -26,10 +26,11 @@ RUN curl -L -o /opt/spark/jars/aws-java-sdk-bundle-1.12.367.jar \
       curl -L -o /opt/spark/jars/aws-java-sdk-bundle-1.12.367.jar \
       https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.367/aws-java-sdk-bundle-1.12.367.jar
 
-# Create a virtualenv in /opt and install dependencies using uv
+# Create a virtualenv and install dependencies using uv
 WORKDIR /opt
 COPY pyproject.toml ./
-RUN uv sync
+RUN uv venv && \
+    uv pip install -r pyproject.toml
 
 # Create notebooks directory and set permissions for the non-root user 'spark'
 RUN mkdir -p /opt/notebooks /opt/spark-apps && \

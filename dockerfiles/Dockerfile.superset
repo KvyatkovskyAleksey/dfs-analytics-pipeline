@@ -2,24 +2,26 @@ FROM apache/superset:5.0.0
 
 USER root
 
-# Install system dependencies
+# Install system dependencies including curl for uv installation
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
     postgresql-client \
+    curl \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python packages as root into the venv
-# duckdb-engine will install compatible duckdb version automatically
-RUN /app/.venv/bin/python -m ensurepip --upgrade && \
-    /app/.venv/bin/python -m pip install --upgrade pip && \
-    /app/.venv/bin/python -m pip install --no-cache-dir \
-    psycopg2-binary==2.9.10 \
-    duckdb-engine \
-    s3fs==2025.9.0 \
-    redis==5.0.1 \
-    cachelib
+# Install uv package manager
+ADD https://astral.sh/uv/install.sh /uv-installer.sh
+RUN sh /uv-installer.sh && rm /uv-installer.sh
+ENV PATH="/root/.local/bin/:$PATH"
+
+# Copy pyproject.toml and install dependencies using uv
+COPY pyproject.toml /tmp/pyproject.toml
+WORKDIR /tmp
+RUN uv pip install --python=/app/.venv/bin/python -r pyproject.toml && \
+    uv pip install --python=/app/.venv/bin/python --group superset
 
 # Verify installation and show versions
 RUN /app/.venv/bin/python -c "import psycopg2; import duckdb; import duckdb_engine; from cachelib.redis import RedisCache; print(f'✓ DuckDB {duckdb.__version__}, duckdb-engine, cachelib installed')"

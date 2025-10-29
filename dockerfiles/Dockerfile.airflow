@@ -1,28 +1,27 @@
 FROM apache/airflow:3.1.0
 
-# Copy main pyproject.toml
-COPY --chown=airflow:root pyproject.toml /opt/airflow/pyproject.toml
+USER root
 
-# Set working directory
+# Install curl and ca-certificates for uv installation
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install uv package manager
+ADD https://astral.sh/uv/install.sh /uv-installer.sh
+RUN sh /uv-installer.sh && rm /uv-installer.sh
+ENV PATH="/root/.local/bin/:$PATH"
+
+# Copy pyproject.toml and install dependencies as root
+COPY pyproject.toml /opt/airflow/pyproject.toml
 WORKDIR /opt/airflow
 
-# Parse pyproject.toml, filter out apache-airflow==3.1.0, generate requirements.txt
-# This keeps airflow extensions (apache-airflow-providers-*) but excludes the base airflow package
-RUN python <<EOF
-import tomllib
+# Install base dependencies (excluding airflow group which is already in base image)
+# Using --system to install into the Airflow base image's Python environment
+RUN uv pip install --system -r pyproject.toml
 
-with open('pyproject.toml', 'rb') as f:
-    data = tomllib.load(f)
-
-deps = data['project']['dependencies']
-filtered = [d for d in deps if not d.startswith('apache-airflow==')]
-
-with open('requirements.txt', 'w') as f:
-    f.write('\n'.join(filtered))
-EOF
-
-# Install filtered dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Switch back to airflow user
+USER airflow
 
 # Add /opt/src to PYTHONPATH so DAGs can import from scripts package
 ENV PYTHONPATH="/opt/src:${PYTHONPATH:-}"
