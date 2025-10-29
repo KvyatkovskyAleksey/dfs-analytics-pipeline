@@ -24,7 +24,7 @@ class BaseDuckDBProcessor:
             or not self.bucket_name
         ):
             raise ImproperlyConfigured(
-                "WASABI_ACCESS_KEY and WASABI_SECRET_KEY environment variables must be set"
+                "WASABI_ACCESS_KEY, WASABI_SECRET_KEY and WASABI_BUCKET_NAME environment variables must be set"
             )
 
         # Initialize S3 filesystem for file checks
@@ -74,7 +74,9 @@ class BaseDuckDBProcessor:
                 os.unlink(self.temp_db_path)
                 logger.debug(f"Deleted temp database: {self.temp_db_path}")
             except Exception as e:
-                logger.warning(f"Failed to delete temp database {self.temp_db_path}: {e}")
+                logger.warning(
+                    f"Failed to delete temp database {self.temp_db_path}: {e}"
+                )
 
         # Clean up temp directory for spill operations
         if hasattr(self, "temp_dir") and os.path.exists(self.temp_dir):
