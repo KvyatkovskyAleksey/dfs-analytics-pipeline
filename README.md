@@ -339,20 +339,23 @@ dfs-analytics-pipeline/
 │   │   ├── daily_scraping_dag.py      # Скрапинг данных (Staging)
 │   │   └── daily_dds_dag.py           # Обработка данных (DDS)
 │   │
-│   └── scripts/                       # Python модули
-│       ├── rotogrinders_scraper.py    # Scraper для Rotogrinders API
-│       ├── staging_processor.py       # Загрузка в Staging
-│       ├── dds_processor.py           # Трансформация в DDS
-│       ├── base_duck_db_processor.py  # Базовый класс для DuckDB
-│       ├── date_tracker.py            # Отслеживание обработанных дат
-│       │
-│       ├── marts/                     # Аналитические витрины
-│       │   ├── top_users_mart.py
-│       │   ├── single_game_dk_top_lineups_mart.py
-│       │   └── nfl_position_correlations_mart.py
-│       │
-│       └── utils/                     # Утилиты
-│           └── proxy.py               # Управление прокси
+│   ├── scripts/                       # Python модули
+│   │   ├── rotogrinders_scraper.py    # Scraper для Rotogrinders API
+│   │   ├── staging_processor.py       # Загрузка в Staging
+│   │   ├── dds_processor.py           # Трансформация в DDS
+│   │   ├── base_duck_db_processor.py  # Базовый класс для DuckDB
+│   │   ├── date_tracker.py            # Отслеживание обработанных дат
+│   │   │
+│   │   ├── marts/                     # Аналитические витрины
+│   │   │   ├── top_users_mart.py
+│   │   │   ├── single_game_dk_top_lineups_mart.py
+│   │   │   └── nfl_position_correlations_mart.py
+│   │   │
+│   │   └── utils/                     # Утилиты
+│   │       └── proxy.py               # Управление прокси
+│   │
+│   ├── notebooks/                     # Jupyter notebooks для исследований
+│   └── spark-apps/                    # Spark приложения (учебные цели)
 │
 ├── docs/                              # Документация
 │   ├── staging_layer.md               # Описание Staging слоя
@@ -371,7 +374,6 @@ dfs-analytics-pipeline/
 │   ├── superset_config.py             # Конфигурация Superset
 │   └── init_superset_db.sh            # Создание БД для Superset
 │
-├── notebooks/                         # Jupyter notebooks для исследований
 ├── docker-compose.yaml                # Определение инфраструктуры
 ├── .env.example                       # Пример конфигурации
 ├── pyproject.toml                     # Python зависимости
