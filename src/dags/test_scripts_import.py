@@ -59,7 +59,7 @@ def test_scripts_import():
     print("=" * 60)
 
     try:
-        from scripts.staging.staging_processor import RotogrindersStagingProcessor
+        from scripts.staging.rotogrinders_processor import RotogrindersStagingProcessor
 
         print(f"✓ RotogrindersStagingProcessor imported successfully")
         print(f"  Location: {RotogrindersStagingProcessor.__module__}")

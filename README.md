@@ -336,23 +336,40 @@ docker-compose down -v
 dfs-analytics-pipeline/
 ├── src/
 │   ├── dags/                          # Airflow DAG'и
-│   │   ├── daily_scraping_dag.py      # Скрапинг данных (Staging)
-│   │   └── daily_dds_dag.py           # Обработка данных (DDS)
+│   │   ├── daily_scraping_dag.py      # Скрапинг Rotogrinders (Staging)
+│   │   ├── daily_extra_spiders_scraping_dag.py # Дополнительные источники (MoneyPuck и др.)
+│   │   ├── daily_dds_dag.py           # Обработка данных (DDS)
+│   │   └── test_scripts_import.py     # Тестовый DAG для проверки импортов
 │   │
 │   ├── scripts/                       # Python модули
-│   │   ├── rotogrinders_scraper.py    # Scraper для Rotogrinders API
-│   │   ├── staging_processor.py       # Загрузка в Staging
-│   │   ├── dds_processor.py           # Трансформация в DDS
-│   │   ├── base_duck_db_processor.py  # Базовый класс для DuckDB
-│   │   ├── date_tracker.py            # Отслеживание обработанных дат
+│   │   ├── spiders/                   # Scrapers для различных источников
+│   │   │   ├── base_spider.py         # Базовый класс для scrapers
+│   │   │   ├── rotogrinders_scraper.py # Scraper для Rotogrinders API
+│   │   │   └── moneypuck_scraper.py   # Scraper для MoneyPuck (NHL)
+│   │   │
+│   │   ├── staging/                   # Загрузка данных в Staging
+│   │   │   ├── base_staging_processor.py # Базовый класс для staging
+│   │   │   ├── rotogrinders.py        # Loader для Rotogrinders
+│   │   │   ├── rotogrinders_processor.py # Processor для Rotogrinders
+│   │   │   ├── moneypuck.py           # Loader для MoneyPuck
+│   │   │   └── moneypuck_processor.py # Processor для MoneyPuck
+│   │   │
+│   │   ├── dds/                       # Трансформация в DDS
+│   │   │   ├── dds_processing.py      # Оркестрация DDS обработки
+│   │   │   └── dds_processor.py       # DDS трансформации
 │   │   │
 │   │   ├── marts/                     # Аналитические витрины
 │   │   │   ├── top_users_mart.py
 │   │   │   ├── single_game_dk_top_lineups_mart.py
-│   │   │   └── nfl_position_correlations_mart.py
+│   │   │   ├── nfl_position_correlations_mart.py
+│   │   │   └── team_stacks_mart.py
 │   │   │
-│   │   └── utils/                     # Утилиты
-│   │       └── proxy.py               # Управление прокси
+│   │   ├── utils/                     # Утилиты
+│   │   │   └── proxy.py               # Управление прокси
+│   │   │
+│   │   ├── base_duck_db_processor.py  # Базовый класс для DuckDB
+│   │   ├── date_tracker.py            # Отслеживание обработанных дат
+│   │   └── exceptions.py              # Кастомные исключения
 │   │
 │   ├── notebooks/                     # Jupyter notebooks для исследований
 │   └── spark-apps/                    # Spark приложения (учебные цели)

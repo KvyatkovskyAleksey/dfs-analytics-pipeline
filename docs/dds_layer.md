@@ -43,7 +43,7 @@ For each sport (NFL):
 
 ## DDS Processor
 
-**Location**: `src/scripts/dds_processor.py`
+**Location**: `src/scripts/dds/dds_processor.py`
 
 ### Architecture
 

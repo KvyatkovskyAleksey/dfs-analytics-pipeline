@@ -41,7 +41,7 @@ For each sport (NFL):
 
 ## Staging Processor
 
-**Location**: `src/scripts/staging_processor.py`
+**Location**: `src/scripts/staging/rotogrinders_processor.py`
 
 ### Responsibilities
 Transforms scraped data into JSONL format and uploads to S3 with gzip compression.
