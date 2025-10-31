@@ -4,7 +4,7 @@ import os
 import pandas as pd
 
 from scripts.exceptions import ImproperlyConfigured
-from scripts.rotogrinders_scraper import StagingData
+from scripts.spiders.rotogrinders_scraper import StagingData
 
 logger = logging.getLogger("DuckDBStagingProcessor")
 logger.setLevel(logging.INFO)

@@ -25,7 +25,7 @@ from airflow.providers.standard.operators.empty import EmptyOperator
 
 from scripts.min_points_processing import process_min_points_to_api
 from scripts.date_tracker import DateTracker
-from scripts.rotogrinders_scraper import Sport
+from scripts.spiders.rotogrinders_scraper import Sport
 
 logger = logging.getLogger(__name__)
 

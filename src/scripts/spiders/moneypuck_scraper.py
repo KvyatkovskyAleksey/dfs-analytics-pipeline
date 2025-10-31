@@ -1,0 +1,72 @@
+import io
+from datetime import datetime
+from typing import cast
+
+import pandas as pd
+from scripts.spiders.base_spider import BaseSpider
+
+
+class MoneyPuckScraper(BaseSpider):
+    """
+    Scraper for moneypuck.com, here we get info about NHL lines for
+    get data about correlations between players
+    """
+
+    def __init__(self, date: str):
+        super().__init__()
+        try:
+            datetime.strptime(date, "%Y-%m-%d")
+        except ValueError:
+            raise ValueError(f"Incorrect date format: {date}")
+        self.date = date
+        self.game_data_by_dates: dict[int, pd.DataFrame] = {}
+
+    def scrape(self):
+        """Scrape data from moneypuck.com for a specific date"""
+        season, game_ids = self._get_games_ids()
+        self.get_moneypuck_data(season, game_ids)
+
+    def get_moneypuck_data(self, season: int, game_ids: list[int]) -> dict:
+        """Get moneypuck data for a given date"""
+        for game_id in game_ids:
+            game_data_df = self._get_moneypuck_game_data(season, game_id)
+            self.game_data_by_dates[game_id] = game_data_df
+        return self.game_data_by_dates
+
+    def _get_moneypuck_game_data(self, season: int, game_id: int) -> pd.DataFrame:
+        """Get moneypuck data for a given game id"""
+        url = f"https://moneypuck.com/moneypuck/playerData/games/{season}/{game_id}.csv"
+        response_text = self._make_request(url, parse_json=False)
+        csv_content = io.StringIO(response_text)
+        return pd.read_csv(csv_content)
+
+    def _get_games_ids(self) -> tuple[int, list[int]]:
+        """Get game ids for a given date, we get it from api-web.nhle.com which is official NHL api"""
+        api_url = "https://api-web.nhle.com/v1/schedule/" + self.date
+        response = self._make_request(api_url)
+        if not response:
+            self.logger(f"No games found for date: {self.date}")
+            return 0, []
+        try:
+            date_games = next(
+                data for data in response["gameWeek"] if data["date"] == self.date
+            )
+            self.logger.info(
+                f"Found {len(date_games['games'])} games for date: {self.date}"
+            )
+        except StopIteration:
+            self.logger.info(f"No games found for date: {self.date}")
+            return 0, []
+        return cast(int, date_games["games"][0]["season"]), [
+            cast(int, game["id"]) for game in date_games["games"]
+        ]
+
+    def get_data(self) -> tuple[str, pd.DataFrame]:
+        """Return date and data for a given date as a tuple"""
+        return self.date, pd.concat(self.game_data_by_dates.values())
+
+
+if __name__ == "__main__":
+    scraper = MoneyPuckScraper(date="2025-10-07")
+    scraper.scrape()
+    date, data = scraper.get_data()

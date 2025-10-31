@@ -7,7 +7,7 @@ from io import BytesIO
 import pandas as pd
 
 from scripts.base_duck_db_processor import BaseDuckDBProcessor
-from scripts.rotogrinders_scraper import SlateType
+from scripts.spiders.rotogrinders_scraper import SlateType
 
 logger = logging.getLogger("DdsProcessor")
 

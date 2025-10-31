@@ -9,7 +9,7 @@ import pandas as pd
 import requests
 
 from scripts.base_duck_db_processor import BaseDuckDBProcessor
-from scripts.rotogrinders_scraper import Sport
+from scripts.spiders.rotogrinders_scraper import Sport
 
 logger = logging.getLogger(__name__)
 

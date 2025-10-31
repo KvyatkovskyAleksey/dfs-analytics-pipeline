@@ -1,6 +1,6 @@
 import logging
 
-from scripts.rotogrinders_scraper import Sport, RotogrindersScraper
+from scripts.spiders.rotogrinders_scraper import Sport, RotogrindersScraper
 from scripts.staging_processor import StagingProcessor
 
 logger = logging.getLogger("Staging")

@@ -13,7 +13,7 @@ import logging
 
 from scripts.staging import load_data_to_staging
 from scripts.date_tracker import DateTracker
-from scripts.rotogrinders_scraper import Sport
+from scripts.spiders.rotogrinders_scraper import Sport
 
 logger = logging.getLogger(__name__)
 

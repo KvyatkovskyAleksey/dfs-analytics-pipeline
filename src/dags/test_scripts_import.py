@@ -76,7 +76,10 @@ def test_scripts_import():
         raise
 
     try:
-        from scripts.rotogrinders_scraper import RotogrindersScraper, StagingData
+        from scripts.spiders.rotogrinders_scraper import (
+            RotogrindersScraper,
+            StagingData,
+        )
 
         print(f"✓ RotogrindersScraper and StagingData imported successfully")
     except ImportError as e:

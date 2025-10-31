@@ -4,7 +4,7 @@ import logging
 from typing import Optional
 
 from scripts.min_points_processor import MinPointsProcessor
-from scripts.rotogrinders_scraper import Sport
+from scripts.spiders.rotogrinders_scraper import Sport
 
 logger = logging.getLogger(__name__)
 

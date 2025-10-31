@@ -1,17 +1,9 @@
 import logging
-import os
-import time
 from collections import defaultdict
 from datetime import datetime
-import random
 from typing import TypedDict, Literal
 
-import requests
-
-from scripts.utils.proxy import ProxyManager
-
-
-logger = logging.getLogger("RotogrindersScraper")
+from scripts.spiders.base_spider import BaseSpider
 
 Sport = Literal["NFL", "NBA", "NHL"]
 SlateType = Literal["dk_classic", "dk_single_game", "fd_anyflex"]
@@ -27,10 +19,10 @@ class StagingData(TypedDict):
     sport: Sport
 
 
-class RotogrindersScraper:
+class RotogrindersScraper(BaseSpider):
     """Scraper for scrape data for analytics from rotogrinders.com (ResultsDB)"""
 
-    MAX_REQUESTS_RETRIES = 3
+    logger = logging.getLogger("RotogrindersScraper")
 
     sports_mapping: dict[Sport, int] = {"NFL": 1, "NHL": 4, "NBA": 2}
 
@@ -55,6 +47,7 @@ class RotogrindersScraper:
     }
 
     def __init__(self, date: str, sport: Sport):
+        super().__init__()
         if sport not in self.sports_mapping:
             raise ValueError(f"Unsupported sport: {sport}")
         try:
@@ -70,13 +63,6 @@ class RotogrindersScraper:
         self.events_data = defaultdict(list)
         self.contests_analyze_data = defaultdict(list)
         self.lineups_by_slates = defaultdict(dict)
-        # we can use a proxy manager if set env value for PROXY_URL, it's recommended
-        #  because the site can sometimes block requests
-        proxy_url = os.getenv("PROXY_URL")
-        if proxy_url:
-            self.proxy_manager = ProxyManager(proxy_url)
-        else:
-            self.proxy_manager = None
 
     @property
     def data_exists(self) -> bool:
@@ -93,7 +79,7 @@ class RotogrindersScraper:
             for slate in slate_group["draft_groups"]:
                 # sometimes api return data for upcoming dates, so we can skip it for don't duplicate data
                 if not slate["contest_start_date"].startswith(self.date):
-                    logger.info(
+                    self.logger.info(
                         f"Skip slate, because it's not for scraped date ({self.date} != {slate['contest_start_date']})"
                     )
                     continue
@@ -101,14 +87,14 @@ class RotogrindersScraper:
                 slate_id = slate["id"]
                 slate_contests = self._scrape_slate_contests(slate_id)
                 if slate_contests is None:
-                    logger.info(
+                    self.logger.info(
                         f"Skip slate {slate_id}, because it doesn't have contests data"
                     )
                     continue
                 self.contests_data[partition_name].append(slate_contests)
                 slate_events = self._get_events(slate_id)
                 if slate_events is None:
-                    logger.info(
+                    self.logger.info(
                         f"Skip slate {slate_id}, because it doesn't have events data"
                     )
                     continue
@@ -118,7 +104,7 @@ class RotogrindersScraper:
                         contest["contest_id"]
                     )
                     if not contests_analyze_data:
-                        logger.info(
+                        self.logger.info(
                             f"Skip contest, because it doesn't have contests analyze data ({contest['contest_id']})"
                         )
                         continue
@@ -129,7 +115,7 @@ class RotogrindersScraper:
                         contest["contest_id"]
                     )
                     if not contest_lineups:
-                        logger.info(
+                        self.logger.info(
                             f"Skip contest, because it doesn't have lineups ({contest['contest_id']})"
                         )
                         continue
@@ -157,35 +143,6 @@ class RotogrindersScraper:
             f"?sport_id={self.sports_mapping[self.sport]}&date={self.date}"
         )
         return self._make_request(url)
-
-    def _make_request(self, url: str) -> dict | None:
-        """Make a request with retries and proxies if set"""
-        logger.info(f"Making request to {url}")
-        attempts = 0
-        request_data = None
-        while attempts < self.MAX_REQUESTS_RETRIES:
-            try:
-                attempts += 1
-                proxies = None
-                if self.proxy_manager:
-                    proxy = self.proxy_manager.get_random_proxy()
-                    proxies = {"http": proxy, "https": proxy}
-                if not proxies:
-                    # to prevent banning, add delay if no proxies set
-                    time.sleep(random.uniform(3, 5))
-                response = requests.get(
-                    url, headers=self.headers, proxies=proxies, timeout=120
-                )
-                if response.status_code == 200:
-                    request_data = response.json()
-                    break
-            except requests.exceptions.ProxyError:
-                logger.info(f"ProxyError on {url}")
-                continue
-            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
-                logger.info(f"ConnectionError on {url}")
-                continue
-        return request_data
 
     def _scrape_slate_contests(self, slate_id: int) -> dict:
         """Scrape contests from slate"""
