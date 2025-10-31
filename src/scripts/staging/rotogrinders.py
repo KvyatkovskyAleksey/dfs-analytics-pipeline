@@ -1,12 +1,12 @@
 import logging
 
 from scripts.spiders.rotogrinders_scraper import Sport, RotogrindersScraper
-from scripts.staging_processor import StagingProcessor
+from scripts.staging.rotogrinders_processor import RotogrindersStagingProcessor
 
 logger = logging.getLogger("Staging")
 
 
-def load_data_to_staging(date: str, sport: Sport):
+def load_rotogrinders_data_to_staging(date: str, sport: Sport):
     """
     Load staging data for a specific sport and date.
 
@@ -17,11 +17,11 @@ def load_data_to_staging(date: str, sport: Sport):
     scraper = RotogrindersScraper(date, sport)
     scraper.scrape()
     if scraper.data_exists:
-        processor = StagingProcessor(scraper.get_data())
+        processor = RotogrindersStagingProcessor(scraper.get_data())
         processor.save_data_to_s3()
     else:
         logger.info("No data found for this date.")
 
 
 if __name__ == "__main__":
-    load_data_to_staging("2025-10-02", "NFL")
+    load_rotogrinders_data_to_staging("2025-10-02", "NFL")

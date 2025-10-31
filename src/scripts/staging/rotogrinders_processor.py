@@ -1,31 +1,19 @@
 import logging
-import os
 
 import pandas as pd
 
-from scripts.exceptions import ImproperlyConfigured
 from scripts.spiders.rotogrinders_scraper import StagingData
+from scripts.staging.base_staging_processor import BaseStagingProcessor
 
 logger = logging.getLogger("DuckDBStagingProcessor")
 logger.setLevel(logging.INFO)
 
 
-class StagingProcessor:
+class RotogrindersStagingProcessor(BaseStagingProcessor):
     def __init__(self, staging_data: StagingData) -> None:
         """Processor for save data in JSON format to s3 using pandas and gzip for compression"""
+        super().__init__()
         self.staging_data = staging_data
-        self.s3_endpoint = os.getenv("WASABI_ENDPOINT", "s3.us-east-2.wasabisys.com")
-        self.s3_access_key_id = os.getenv("WASABI_ACCESS_KEY")
-        self.s3_secret_access_key = os.getenv("WASABI_SECRET_KEY")
-        self.bucket_name = os.getenv("WASABI_BUCKET_NAME")
-        if (
-            not self.s3_access_key_id
-            or not self.s3_secret_access_key
-            or not self.bucket_name
-        ):
-            raise ImproperlyConfigured(
-                "WASABI_ACCESS_KEY, WASABI_SECRET_KEY and WASABI_BUCKET_NAME environment variables must be set"
-            )
         self.sport = staging_data["sport"]
         self.date = staging_data["date"]
         self.base_path = f"s3://{self.bucket_name}/staging/{self.sport}/"
@@ -108,7 +96,7 @@ class StagingProcessor:
 if __name__ == "__main__":
     import pickle
 
-    with open("./staging_data.pickle", "rb") as f:
+    with open("../staging_data.pickle", "rb") as f:
         stage_data = pickle.load(f)
-    with StagingProcessor(stage_data) as processor:
+    with RotogrindersStagingProcessor(stage_data) as processor:
         processor.save_data_to_s3()

@@ -11,7 +11,7 @@ from airflow.providers.standard.operators.empty import EmptyOperator
 from airflow.sdk.definitions.taskgroup import TaskGroup
 import logging
 
-from scripts.dds_processing import (
+from scripts.dds.dds_processing import (
     process_contests_to_dds,
     process_players_to_dds,
     process_users_lineups_to_dds,

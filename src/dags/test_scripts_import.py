@@ -59,12 +59,12 @@ def test_scripts_import():
     print("=" * 60)
 
     try:
-        from scripts.staging_processor import StagingProcessor
+        from scripts.staging.staging_processor import RotogrindersStagingProcessor
 
-        print(f"✓ StagingProcessor imported successfully")
-        print(f"  Location: {StagingProcessor.__module__}")
+        print(f"✓ RotogrindersStagingProcessor imported successfully")
+        print(f"  Location: {RotogrindersStagingProcessor.__module__}")
     except ImportError as e:
-        print(f"✗ Failed to import StagingProcessor: {e}")
+        print(f"✗ Failed to import RotogrindersStagingProcessor: {e}")
         raise
 
     try:

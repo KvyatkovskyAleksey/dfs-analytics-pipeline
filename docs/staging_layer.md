@@ -51,7 +51,7 @@ Transforms scraped data into JSONL format and uploads to S3 with gzip compressio
 ```
 RotogrindersScraper (raw data)
     ↓
-StagingProcessor
+RotogrindersStagingProcessor
     ↓
 S3 Storage (JSONL + gzip)
 ```

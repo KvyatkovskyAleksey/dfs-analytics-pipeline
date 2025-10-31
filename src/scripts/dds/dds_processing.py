@@ -2,7 +2,7 @@
 
 import logging
 
-from scripts.dds_processor import DdsProcessor
+from scripts.dds.dds_processor import DdsProcessor
 from scripts.spiders.rotogrinders_scraper import Sport
 
 logger = logging.getLogger(__name__)

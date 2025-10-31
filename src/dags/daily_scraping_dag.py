@@ -11,7 +11,7 @@ from airflow.providers.standard.operators.empty import EmptyOperator
 from airflow.sdk.definitions.taskgroup import TaskGroup
 import logging
 
-from scripts.staging import load_data_to_staging
+from scripts.staging.rotogrinders import load_rotogrinders_data_to_staging
 from scripts.date_tracker import DateTracker
 from scripts.spiders.rotogrinders_scraper import Sport
 
@@ -61,7 +61,7 @@ def scrape_and_load(sport: Sport, **context) -> None:
     target_date = (logical_date - timedelta(days=3)).strftime("%Y-%m-%d")
 
     logger.info(f"{sport} - Starting scrape for {target_date}")
-    load_data_to_staging(date=target_date, sport=sport)
+    load_rotogrinders_data_to_staging(date=target_date, sport=sport)
     logger.info(f"{sport} - Successfully scraped and loaded {target_date}")
 
 
