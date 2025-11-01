@@ -65,7 +65,7 @@ class MoneyPuckScraper(BaseSpider):
     ) -> pd.DataFrame | None:
         """Scrape game events data for a given game id"""
         url = f"https://moneypuck.com/moneypuck/gameData/{season}/{game_id}.csv"
-        response_text = self._make_request(url, parse_json=False)
+        response_text = self._make_request(url, parse_json=False, timeout=15)
 
         # Check if response is valid before parsing
         if not response_text:
@@ -82,7 +82,7 @@ class MoneyPuckScraper(BaseSpider):
     ) -> pd.DataFrame | None:
         """Get moneypuck data for a given game id"""
         url = f"https://moneypuck.com/moneypuck/playerData/games/{season}/{game_id}.csv"
-        response_text = self._make_request(url, parse_json=False)
+        response_text = self._make_request(url, parse_json=False, timeout=10)
 
         # Check if response is valid before parsing
         if not response_text:

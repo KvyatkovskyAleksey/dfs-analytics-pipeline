@@ -32,7 +32,7 @@ class BaseSpider:
         else:
             self.proxy_manager = None
 
-    def _make_request(self, url: str, parse_json: bool = True) -> dict | str | None:
+    def _make_request(self, url: str, parse_json: bool = True, timeout: int = 120) -> dict | str | None:
         """Make a request with retries and proxies if set"""
         self.logger.info(f"Making request to {url}")
         attempts = 0
@@ -48,7 +48,7 @@ class BaseSpider:
                     # to prevent banning, add delay if no proxies set
                     time.sleep(random.uniform(3, 5))
                 response = requests.get(
-                    url, headers=self.headers, proxies=proxies, timeout=120
+                    url, headers=self.headers, proxies=proxies, timeout=timeout
                 )
                 if response.status_code == 200:
                     if parse_json:
