@@ -41,8 +41,8 @@ Before creating dashboards, generate your mart data:
 # Generate top users mart
 python src/scripts/marts/top_users_mart.py
 
-# Generate NFL position correlations mart
-python src/scripts/marts/nfl_position_correlations_mart.py
+# Generate position correlations mart
+python src/scripts/marts/position_correlations_mart.py
 ```
 
 ## Connecting to S3 Marts
@@ -144,8 +144,8 @@ WHERE roi_sum > 0
 LIMIT 100;
 ```
 
-### 2. NFL Position Correlations Mart
-**Path:** `s3://your-bucket-name/marts/nfl_position_correlations/data.parquet`
+### 2. Position Correlations Mart
+**Path:** `s3://your-bucket-name/marts/{sport}_position_correlations/data.parquet`
 
 **Schema:**
 - `position_1` (TEXT): First position
@@ -157,7 +157,7 @@ LIMIT 100;
 **Example Query:**
 ```sql
 SELECT *
-FROM read_parquet('s3://your-bucket-name/marts/nfl_position_correlations/data.parquet')
+FROM read_parquet('s3://your-bucket-name/marts/nfl_correlations/data.parquet')
 WHERE team_relationship = 'same_team'
 ORDER BY correlation DESC
 LIMIT 20;
@@ -182,7 +182,7 @@ LIMIT 20;
 ### Example: Position Correlations Heatmap
 
 1. Create a **Heatmap**:
-   - Dataset: NFL Position Correlations
+   - Dataset: Position Correlations
    - Rows: `position_1`
    - Columns: `position_2`
    - Metric: AVG(`correlation`)

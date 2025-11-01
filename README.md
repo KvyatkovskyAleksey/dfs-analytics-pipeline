@@ -193,7 +193,7 @@ s3://bucket-name/
 - Сколько уникальных составов оптимально создавать?
 - Как управлять риском через max_exposure?
 
-#### 3. **NFL Position Correlations Mart** (`nfl_position_correlations_mart.py`)
+#### 3. **Position Correlations Mart** (`position_correlations_mart.py`)
 Анализ корреляции производительности между позициями:
 - Корреляция внутри команды (same_team)
 - Корреляция между командами-соперниками (opponent_team)
@@ -361,7 +361,7 @@ dfs-analytics-pipeline/
 │   │   ├── marts/                     # Аналитические витрины
 │   │   │   ├── top_users_mart.py
 │   │   │   ├── single_game_dk_top_lineups_mart.py
-│   │   │   ├── nfl_position_correlations_mart.py
+│   │   │   ├── position_correlations_mart.py
 │   │   │   └── team_stacks_mart.py
 │   │   │
 │   │   ├── utils/                     # Утилиты

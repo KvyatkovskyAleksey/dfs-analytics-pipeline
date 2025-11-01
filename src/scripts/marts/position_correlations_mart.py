@@ -2,10 +2,10 @@ import logging
 
 from scripts.base_duck_db_processor import BaseDuckDBProcessor
 
-logger = logging.getLogger("NFLPositionCorrelationsMart")
+logger = logging.getLogger("PositionCorrelationsMart")
 
 
-class NFLPositionCorrelationsMart(BaseDuckDBProcessor):
+class PositionCorrelationsMart(BaseDuckDBProcessor):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.sport = kwargs.get("sport")
@@ -20,7 +20,7 @@ class NFLPositionCorrelationsMart(BaseDuckDBProcessor):
             f"{self.marts_base_path}{self.sport.lower()}_correlations/data.parquet"
         )
 
-        logger.info(f"Processing NFL position correlations mart for {self.sport}")
+        logger.info(f"Processing position correlations mart for {self.sport}")
 
         # Calculate position correlations for same team and opponent team
         self.con.execute(
@@ -79,9 +79,9 @@ class NFLPositionCorrelationsMart(BaseDuckDBProcessor):
             """
         )
 
-        logger.info(f"✓ NFL position correlations mart saved to {mart_path}")
+        logger.info(f"✓ Position correlations mart saved to {mart_path}")
 
 
 if __name__ == "__main__":
-    with NFLPositionCorrelationsMart(sport="NFL") as processor:
+    with PositionCorrelationsMart(sport="NBA") as processor:
         processor.process()
