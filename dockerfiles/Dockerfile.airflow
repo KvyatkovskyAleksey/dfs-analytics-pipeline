@@ -12,15 +12,16 @@ ADD https://astral.sh/uv/install.sh /uv-installer.sh
 RUN sh /uv-installer.sh && rm /uv-installer.sh
 ENV PATH="/root/.local/bin/:$PATH"
 
-USER airflow
-
 # Copy pyproject.toml and set working directory
-COPY --chown=airflow:root pyproject.toml /opt/airflow/pyproject.toml
+COPY pyproject.toml /opt/airflow/pyproject.toml
 WORKDIR /opt/airflow
 
 # Install base dependencies (excluding airflow group which is already in base image)
 # Using --system to install into the Airflow base image's Python environment
+# Must run as root to write to system Python directories
 RUN uv pip install --system -r pyproject.toml
+
+USER airflow
 
 # Add /opt/src to PYTHONPATH so DAGs can import from scripts package
 ENV PYTHONPATH="/opt/src:${PYTHONPATH:-}"
