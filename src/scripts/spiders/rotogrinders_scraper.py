@@ -3,9 +3,9 @@ from collections import defaultdict
 from datetime import datetime
 from typing import TypedDict, Literal
 
+from schemas import Sport
 from scripts.spiders.base_spider import BaseSpider
 
-Sport = Literal["NFL", "NBA", "NHL"]
 SlateType = Literal["dk_classic", "dk_single_game", "fd_anyflex"]
 
 

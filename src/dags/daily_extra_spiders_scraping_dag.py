@@ -12,7 +12,7 @@ from airflow.sdk.definitions.taskgroup import TaskGroup
 import logging
 
 from scripts.date_tracker import DateTracker
-from scripts.spiders.rotogrinders_scraper import Sport
+from schemas import Sport
 from scripts.staging.moneypuck import load_moneypuck_data_to_staging
 
 logger = logging.getLogger(__name__)

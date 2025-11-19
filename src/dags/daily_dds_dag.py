@@ -19,7 +19,7 @@ from scripts.dds.dds_processing import (
     process_draft_groups_to_dds,
 )
 from scripts.date_tracker import DateTracker
-from scripts.spiders.rotogrinders_scraper import Sport
+from schemas import Sport
 
 logger = logging.getLogger(__name__)
 
