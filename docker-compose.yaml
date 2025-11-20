@@ -65,6 +65,11 @@ x-airflow-common:
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
     AIRFLOW__CORE__LOAD_EXAMPLES: ${AIRFLOW__CORE__LOAD_EXAMPLES:-true}
     AIRFLOW__CORE__EXECUTION_API_SERVER_URL: 'http://airflow-apiserver:8080/execution/'
+    # set database settings for optimize connection from local
+    AIRFLOW__CORE__SQL_ALCHEMY_POOL_SIZE: 20
+    AIRFLOW__CORE__SQL_ALCHEMY_MAX_OVERFLOW: 40
+    AIRFLOW__CORE__SQL_ALCHEMY_POOL_RECYCLE: 1800
+    AIRFLOW__CORE__SQL_ALCHEMY_POOL_PRE_PING: 'true'
     # yamllint disable rule:line-length
     # Use simple http server on scheduler for health checks
     # See https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/logging-monitoring/check-health.html#scheduler-health-check-server
