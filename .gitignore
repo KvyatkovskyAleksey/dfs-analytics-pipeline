@@ -176,3 +176,4 @@ postgres-data
 # temporary development files
 /src/scripts/staging_data.pickle
 /.env_for_test
+/comment.txt

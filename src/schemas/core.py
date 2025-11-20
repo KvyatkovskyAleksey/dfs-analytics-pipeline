@@ -1,3 +1,4 @@
 from typing import Literal
 
-Sport = Literal["NFL", "NBA", "NHL"]
+
+Sport = Literal["NFL", "NBA", "NHL", "MLB"]
