@@ -51,7 +51,7 @@
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                      DATA SOURCES                            │
-│              Rotogrinders / FantasyLabs API                  │
+│        Rotogrinders / FantasyLabs / ESPN / MoneyPuck         │
 └───────────────────────────┬──────────────────────────────────┘
                             │
                             ▼
@@ -272,6 +272,99 @@ Marts Layer (S3)
 
 ---
 
+## 🎲 ESPN Odds Integration
+
+Проект включает интеграцию с **ESPN API** для получения актуальных данных о спортивных ставках (betting odds).
+
+### Источник данных
+[ESPN API](https://www.espn.com/) — официальное API ESPN для получения информации о матчах и коэффициентах букмекеров.
+
+### Поддерживаемые виды спорта
+- **NBA** (Basketball)
+- **NFL** (American Football)
+- **NHL** (Hockey)
+
+### Реализованные компоненты
+
+#### 1. ESPN Spider
+- **Модуль:** `src/scripts/spiders/espn_spider.py`
+- **Класс:** `BaseEspnSpider`
+- **Особенности:**
+  - Асинхронное получение данных с использованием `httpx`
+  - Контроль конкурентности (до 16 параллельных запросов)
+  - Двухэтапный процесс получения данных:
+    1. Scoreboard API — список всех игр на дату
+    2. Odds API — детальные коэффициенты для каждой игры
+
+#### 2. ESPN Staging Processor
+- **Модуль:** `src/scripts/staging/espn_processor.py`
+- **Класс:** `EspnStagingProcessor`
+- **Формат данных:** JSON + gzip compression
+- **Версионирование:** v1 структура данных
+- **Хранение:** Pandas to_json с storage_options
+
+#### 3. ESPN Odds DAG
+- **Модуль:** `src/dags/espn_odds_scraping_dag.py`
+- **Расписание:** Дважды в день (00:00 и 12:00 UTC)
+- **Особенности:**
+  - Умная логика backfill: пропускает уже обработанные даты
+  - Всегда обновляет данные за текущий день (odds меняются в течение дня)
+  - 3 параллельных задачи для ускорения backfill
+- **Backfill:** С сентября 2025
+
+### Структура данных v1
+
+Каждая выгрузка содержит:
+```json
+{
+  "version": "v1",
+  "date": "2025-11-20",
+  "sport": "NBA",
+  "fetch_timestamp": "2025-11-20T12:00:00Z",
+  "scoreboard_response": { ... },
+  "odds_responses": [
+    {
+      "game_id": "401234567",
+      "game_name": "Team A @ Team B",
+      "odds_data": { ... }
+    }
+  ]
+}
+```
+
+### Архитектура данных ESPN
+
+```
+ESPN API
+    ├── Scoreboard Endpoint (список игр)
+    └── Odds Endpoint (коэффициенты по каждой игре)
+         ↓
+Staging Layer (S3)
+    ├── staging/{sport}/espn_odds/v1/{date}/data.json.gz
+    ↓
+DDS Layer (планируется)
+    ├── dds/espn_odds/games.parquet
+    ├── dds/espn_odds/odds.parquet
+    └── dds/espn_odds/providers.parquet
+         ↓
+    Apache Superset / Jupyter
+```
+
+### S3 Storage Path
+
+```
+s3://bucket/staging/
+├── NBA/espn_odds/v1/2025-11-20/data.json.gz
+├── NFL/espn_odds/v1/2025-11-20/data.json.gz
+└── NHL/espn_odds/v1/2025-11-20/data.json.gz
+```
+
+### Возможности анализа
+
+- **Интеграция с DFS** — корреляция odds с DFS performance
+
+---
+
 ## 🚀 Установка и запуск
 
 ### Системные требования
@@ -367,6 +460,8 @@ docker-compose ps
 1. Откройте Airflow UI: http://localhost:8080
 2. Включите DAG'и:
    - `daily_scraping_dag` — скрапинг данных с Rotogrinders
+   - `daily_extra_spiders_scraping_dag` — скрапинг дополнительных источников (MoneyPuck)
+   - `espn_odds_scraping_dag` — скрапинг данных о ставках с ESPN (дважды в день)
    - `daily_dds_dag` — трансформация данных в DDS слой
    - `moneypuck_dds_dag` — обработка MoneyPuck данных (NHL)
 3. Для ручного запуска нажмите кнопку "Trigger DAG"
@@ -391,6 +486,7 @@ dfs-analytics-pipeline/
 │   ├── dags/                          # Airflow DAG'и
 │   │   ├── daily_scraping_dag.py      # Скрапинг Rotogrinders (Staging)
 │   │   ├── daily_extra_spiders_scraping_dag.py # Дополнительные источники (MoneyPuck и др.)
+│   │   ├── espn_odds_scraping_dag.py  # Скрапинг ESPN odds (дважды в день)
 │   │   ├── daily_dds_dag.py           # Обработка данных (DDS)
 │   │   └── test_scripts_import.py     # Тестовый DAG для проверки импортов
 │   │
@@ -398,14 +494,17 @@ dfs-analytics-pipeline/
 │   │   ├── spiders/                   # Scrapers для различных источников
 │   │   │   ├── base_spider.py         # Базовый класс для scrapers
 │   │   │   ├── rotogrinders_scraper.py # Scraper для Rotogrinders API
-│   │   │   └── moneypuck_scraper.py   # Scraper для MoneyPuck (NHL)
+│   │   │   ├── moneypuck_scraper.py   # Scraper для MoneyPuck (NHL)
+│   │   │   └── espn_spider.py         # Scraper для ESPN odds (NBA/NFL/NHL)
 │   │   │
 │   │   ├── staging/                   # Загрузка данных в Staging
 │   │   │   ├── base_staging_processor.py # Базовый класс для staging
 │   │   │   ├── rotogrinders.py        # Loader для Rotogrinders
 │   │   │   ├── rotogrinders_processor.py # Processor для Rotogrinders
 │   │   │   ├── moneypuck.py           # Loader для MoneyPuck
-│   │   │   └── moneypuck_processor.py # Processor для MoneyPuck
+│   │   │   ├── moneypuck_processor.py # Processor для MoneyPuck
+│   │   │   ├── espn.py                # Loader для ESPN odds
+│   │   │   └── espn_processor.py      # Processor для ESPN odds
 │   │   │
 │   │   ├── dds/                       # Трансформация в DDS
 │   │   │   ├── dds_processing.py      # Оркестрация DDS обработки
@@ -432,6 +531,7 @@ dfs-analytics-pipeline/
 │   ├── dds_layer.md                   # Описание DDS слоя
 │   ├── development_setup.md           # Инструкции для разработчиков
 │   ├── superset_setup.md              # Настройка Superset
+│   ├── ESPN Odds Data Structure v1.md # Документация ESPN API v1
 │   └── faq/
 │       └── dfs.md                     # FAQ по DFS
 │
